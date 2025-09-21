@@ -1,5 +1,4 @@
-<h1 align="center">🎓 MSc Cancer Genomics and Data Science</h1>
-
+<!-- Badges Row -->
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   &nbsp;&nbsp;
@@ -13,6 +12,8 @@
   &nbsp;&nbsp;
   <a href="https://github.com/naomitorrisi/MSc-Cancer-Genomics-DataScience/commits/main"><img src="https://img.shields.io/github/last-commit/naomitorrisi/MSc-Cancer-Genomics-DataScience" alt="Last updated"></a>
 </p>
+
+<h1 align="center">🎓 MSc Cancer Genomics and Data Science</h1>
 
 <p align="center">
   Coursework, notes, notebooks, figures, and scripts for my MSc Cancer Genomics and Data Science programme.
