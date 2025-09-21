@@ -1,6 +1,6 @@
 # MSc Cancer Genomics and Data Science
 
-This repository contains my coursework, notes, notebooks, figures, and scripts for the MSc Cancer Genomics and Data Science programme.
+This repository contains my coursework, notes, notebooks, figures, and scripts for the MSc Cancer Genomics and Data Science programme at Barts Cancer Institute, Queen Mary University of London.
 
 ---
 
