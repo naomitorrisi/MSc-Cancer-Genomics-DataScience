@@ -1,17 +1,17 @@
 <h1 align="center">🎓 MSc Cancer Genomics and Data Science</h1>
 
 <p align="center">
-  <a href="#-license"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   &nbsp;&nbsp;
-  <img src="https://img.shields.io/badge/Made%20with-Jupyter-orange" alt="Jupyter">
+  <a href="https://jupyter.org" target="_blank"><img src="https://img.shields.io/badge/Made%20with-Jupyter-orange" alt="Jupyter"></a>
   &nbsp;&nbsp;
-  <img src="https://img.shields.io/badge/Python-3.10%2B-blue" alt="Python">
+  <a href="https://www.python.org/" target="_blank"><img src="https://img.shields.io/badge/Python-3.10%2B-blue" alt="Python"></a>
   &nbsp;&nbsp;
-  <img src="https://img.shields.io/github/stars/naomitorrisi/MSc-Cancer-Genomics-DataScience?style=social" alt="GitHub stars">
+  <a href="https://github.com/naomitorrisi/MSc-Cancer-Genomics-DataScience/stargazers"><img src="https://img.shields.io/github/stars/naomitorrisi/MSc-Cancer-Genomics-DataScience?style=social" alt="GitHub stars"></a>
   &nbsp;&nbsp;
-  <img src="https://img.shields.io/github/forks/naomitorrisi/MSc-Cancer-Genomics-DataScience?style=social" alt="GitHub forks">
+  <a href="https://github.com/naomitorrisi/MSc-Cancer-Genomics-DataScience/network/members"><img src="https://img.shields.io/github/forks/naomitorrisi/MSc-Cancer-Genomics-DataScience?style=social" alt="GitHub forks"></a>
   &nbsp;&nbsp;
-  <img src="https://img.shields.io/github/last-commit/naomitorrisi/MSc-Cancer-Genomics-DataScience" alt="Last Updated">
+  <a href="https://github.com/naomitorrisi/MSc-Cancer-Genomics-DataScience/commits/main"><img src="https://img.shields.io/github/last-commit/naomitorrisi/MSc-Cancer-Genomics-DataScience" alt="Last updated"></a>
 </p>
 
 <p align="center">
