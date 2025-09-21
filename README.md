@@ -1,10 +1,22 @@
-# 🎓 MSc Cancer Genomics and Data Science  
+<h1 align="center">🎓 MSc Cancer Genomics and Data Science</h1>
 
-This repository contains my coursework, notes, notebooks, figures, and scripts for the MSc Cancer Genomics and Data Science programme.  
+<p align="center">
+  <a href="#-license"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  &nbsp;&nbsp;
+  <img src="https://img.shields.io/badge/Made%20with-Jupyter-orange" alt="Jupyter">
+  &nbsp;&nbsp;
+  <img src="https://img.shields.io/badge/Python-3.10%2B-blue" alt="Python">
+  &nbsp;&nbsp;
+  <img src="https://img.shields.io/github/stars/naomitorrisi/MSc-Cancer-Genomics-DataScience?style=social" alt="GitHub stars">
+  &nbsp;&nbsp;
+  <img src="https://img.shields.io/github/forks/naomitorrisi/MSc-Cancer-Genomics-DataScience?style=social" alt="GitHub forks">
+  &nbsp;&nbsp;
+  <img src="https://img.shields.io/github/last-commit/naomitorrisi/MSc-Cancer-Genomics-DataScience" alt="Last Updated">
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)  
-[![Made with Jupyter](https://img.shields.io/badge/Made%20with-Jupyter-orange)](https://jupyter.org)  
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)  
+<p align="center">
+  Coursework, notes, notebooks, figures, and scripts for my MSc Cancer Genomics and Data Science programme.
+</p>
 
 ---
 
@@ -12,7 +24,6 @@ This repository contains my coursework, notes, notebooks, figures, and scripts f
 - [📚 Modules](#-modules)
 - [🗂 Repository Structure](#-repository-structure)
 - [✨ Usage](#-usage)
-- [📜 License](#-license)
 
 ---
 
