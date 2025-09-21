@@ -1,9 +1,18 @@
-# MSc Cancer Genomics and Data Science
+![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-orange)
+![License](https://img.shields.io/badge/license-MIT-green)
+![GitHub stars](https://img.shields.io/github/stars/naomitorrisi/MSc-Cancer-Genomics-DataScience?style=social)
 
-This repository contains my coursework, notes, notebooks, figures, and scripts for the MSc Cancer Genomics and Data Science programme at Barts Cancer Institute, Queen Mary University of London.
-
+This repository contains my coursework, notes, notebooks, figures, and scripts for the **MSc Cancer Genomics and Data Science** programme.
 ---
 
+## 📑 Table of Contents
+
+- [📚 Modules](#-modules)
+- [🗂 Repository Structure](#-repository-structure)
+- [✨ Usage](#-usage)
+
+---
 ## 📚 Modules
 
 1. [Module01 – CAMN940 Genomics Approaches to Cancer](Module01-CAMN940-Genomics-Approaches-to-Cancer)
@@ -22,25 +31,23 @@ This repository contains my coursework, notes, notebooks, figures, and scripts f
 ## 🗂 Repository Structure
 
 Each module contains the following subfolders:
-- `notebooks/` → Jupyter notebooks
-- `data/` → datasets
-- `figures/` → images and plots
-- `scripts/` → helper scripts
-- `notes/` → text notes, summaries, reflections
+
+- `notebooks/` → Jupyter notebooks  
+- `data/` → datasets  
+- `figures/` → images and plots  
+- `scripts/` → helper scripts  
+- `notes/` → text notes, summaries, reflections  
 
 ---
 
 ## ✨ Usage
 
 Clone this repository:
+
 ```bash
 git clone https://github.com/naomitorrisi/MSc-Cancer-Genomics-DataScience.git
 cd MSc-Cancer-Genomics-DataScience
 cd Module01-CAMN940-Genomics-Approaches-to-Cancer/notebooks
 jupyter notebook
 
-```bash
-git add README.md
-git commit -m "Add full README with modules and usage"
-git push
-
+This project is licensed under the MIT License.
