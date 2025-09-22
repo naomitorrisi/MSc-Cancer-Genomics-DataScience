@@ -100,12 +100,10 @@ Introduction to R and Python programming for biomedical and cancer data science.
 </details>
 
 <details>
-<summary><a href="./Module03-CAN7031-and-CANM7131-Omics-data-analytics-and-practical-training/"><strong>Module 3: CAN7031 & CAN7131 – Omics Data Analytics and Practical Training (15 credits)</strong></a></summary>
-
+<summary><a href="./Module03-CAN7031-and-CAN7131-Omics-data-analytics-and-practical-training/"><strong>Module 3: CAN7031 & CAN7131 – Omics Data Analytics and Practical Training (15 credits)</strong></a></summary>
 Pipelines and tools for analysing RNA-seq, DNA-seq, ChIP-seq, DNA methylation, and proteomics. Hands-on use of HPC and real-life patient data.  
 **Assessment:** 100% coursework  
 **Lead:** Dr Jun Wang  
-
 </details>
 
 <details>
@@ -118,12 +116,10 @@ Advanced computational approaches for tumour evolution, clonal dynamics, immune 
 </details>
 
 <details>
-<summary><a href="./Module05-CAN7033-and-CANM7133-Mathematical-modeling-and-application/"><strong>Module 5: CAN7033 & CAN7133 – Mathematical Modelling & Application (15 credits)</strong></a></summary>
-
+<summary><a href="./Module05-CAN7033-and-CAN7133-Mathematical-modeling-and-application/"><strong>Module 5: CAN7033 & CAN7133 – Mathematical Modelling & Application (15 credits)</strong></a></summary>
 Introduction to deterministic and stochastic models in biology, including growth models, Lotka–Volterra, SIR, and the Luria–Delbrück framework.  
 **Assessment:** 100% coursework  
 **Lead:** Dr Benjamin Werner  
-
 </details>
 
 <details>
