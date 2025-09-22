@@ -82,90 +82,90 @@
 ## 📂 Module Overviews
 
 <details>
-<summary><a href="./Module01-CAMN940-Genomics-Approaches-to-Cancer"><strong>Module 1: CAMN940 – Genomics Approaches to Cancer (7.5 credits)</strong></a></summary>
+<summary><a href="./Module01-CAMN940-Genomics-Approaches-to-Cancer/"><strong>Module 1: CAMN940 – Genomics Approaches to Cancer (7.5 credits)</strong></a></summary>
 
-Latest advances in omics technologies and their clinical/research applications.  
+Latest advances in omics technologies and their applications in cancer research and clinics.  
 **Assessment:** 50% coursework, 50% online exam  
-**Leads:** Prof. Tatjana Crnogorac-Jurcevic, Prof. Claude Chelala
+**Leads:** Prof. Tatjana Crnogorac-Jurcevic, Prof. Claude Chelala  
 
 </details>
 
 <details>
-<summary><a href="./Module02-R-and-Python-Programming-in-Biomedical-Research"><strong>Module 2: CANM7030 & CANM7130 – R and Python Programming in Biomedical Research (15 credits)</strong></a></summary>
+<summary><a href="./Module02-CANM7030-and-CANM7130-R-and-Python-Programming-in-Biomedical-Research/"><strong>Module 2: CANM7030 & CANM7130 – R and Python Programming in Biomedical Research (15 credits)</strong></a></summary>
 
-Intro to R & Python for biomedical/cancer data science; lectures + practicals using real datasets.  
+Introduction to R and Python programming for biomedical and cancer data science. Combines lectures and practicals using real cancer datasets.  
 **Assessment:** 50% coursework (R), 50% coursework (Python)  
-**Leads:** Dr Jun Wang, Dr Findlay Copley, Dr C. Anthony Anene
+**Leads:** Dr Jun Wang, Dr Findlay Copley, Dr C. Anthony Anene  
 
 </details>
 
 <details>
-<summary><a href="./Module03-Omics-Data-Analytics-and-Practical-Training"><strong>Module 3: CAN7031 & CAN7131 – Omics Data Analytics and Practical Training (15 credits)</strong></a></summary>
+<summary><a href="./Module03-CAN7031-and-CANM7131-Omics-data-analytics-and-practical-training/"><strong>Module 3: CAN7031 & CAN7131 – Omics Data Analytics and Practical Training (15 credits)</strong></a></summary>
 
-Pipelines/tools for RNA-seq, DNA-seq, ChIP-seq, methylation, proteomics; HPC hands-on.  
+Pipelines and tools for analysing RNA-seq, DNA-seq, ChIP-seq, DNA methylation, and proteomics. Hands-on use of HPC and real-life patient data.  
 **Assessment:** 100% coursework  
-**Lead:** Dr Jun Wang
+**Lead:** Dr Jun Wang  
 
 </details>
 
 <details>
-<summary><a href="./Module04-Computational-Genomics-Transcriptomics-and-Evolution"><strong>Module 4: CAN7032 & CAN7132 – Computational Genomics, Transcriptomics & Evolution (15 credits)</strong></a></summary>
+<summary><a href="./Module04-CAN7032-and-CAN7132-Computational-Genomics-Transcriptomics-and-Evolution/"><strong>Module 4: CAN7032 & CAN7132 – Computational Genomics, Transcriptomics & Evolution (15 credits)</strong></a></summary>
 
-Bioinformatics for tumour evolution, clonal architecture, immune deconvolution, immunogenicity.  
+Advanced computational approaches for tumour evolution, clonal dynamics, immune cell infiltration, and tumour immunogenicity.  
 **Assessment:** 100% coursework  
-**Leads:** Prof. Sarah McClelland, Dr Jun Wang
+**Leads:** Prof. Sarah McClelland, Dr Jun Wang  
 
 </details>
 
 <details>
-<summary><a href="./Module05-Mathematical-Modelling-and-Application"><strong>Module 5: CAN7033 & CAN7133 – Mathematical Modelling & Application (15 credits)</strong></a></summary>
+<summary><a href="./Module05-CAN7033-and-CANM7133-Mathematical-modeling-and-application/"><strong>Module 5: CAN7033 & CAN7133 – Mathematical Modelling & Application (15 credits)</strong></a></summary>
 
-Deterministic & stochastic models (growth, Lotka–Volterra, SIR, Luria–Delbrück) for bio problems.  
+Introduction to deterministic and stochastic models in biology, including growth models, Lotka–Volterra, SIR, and the Luria–Delbrück framework.  
 **Assessment:** 100% coursework  
-**Lead:** Dr Benjamin Werner
+**Lead:** Dr Benjamin Werner  
 
 </details>
 
 <details>
-<summary><a href="./Module06-Single-Cell-Analytics"><strong>Module 6: CAN7034 & CAN7134 – Single Cell Analytics (15 credits)</strong></a></summary>
+<summary><a href="./Module06-CAN7034-AND-CAN7134-Single-cell-analytics/"><strong>Module 6: CAN7034 & CAN7134 – Single Cell Analytics (15 credits)</strong></a></summary>
 
-Single-cell expression, chromatin, spatial; multi-modal integration and real data analysis (HPC).  
+Single-cell assays for gene expression, chromatin accessibility, genomics, and spatial methods. Focus on computational integration of multimodal data.  
 **Assessment:** 100% coursework  
-**Lead:** Dr Mirjana Efremova
+**Lead:** Dr Mirjana Efremova  
 
 </details>
 
 <details>
-<summary><a href="./Module07-Machine-Learning-AI-and-Application-to-Biomedical-Research"><strong>Module 7: CAN7035 & CAN7135 – Machine Learning / AI in Biomedical Research (15 credits)</strong></a></summary>
+<summary><a href="./Module07-CAN7035-AND-CAN7135-Machine-Learning-AI-and-application-to-biomedical-research/"><strong>Module 7: CAN7035 & CAN7135 – Machine Learning / AI in Biomedical Research (15 credits)</strong></a></summary>
 
-ML/AI for omics & imaging; methods, workflows, and hands-on practicals.  
+Machine learning and AI for omics and imaging data; methods, workflows, and clinical applications. Includes hands-on application to cancer datasets.  
 **Assessment:** 100% coursework  
-**Leads:** Dr Jun Wang, Prof. Pedro Cutillas
+**Leads:** Dr Jun Wang, Prof. Pedro Cutillas  
 
 </details>
 
 <details>
-<summary><a href="./Module08-Drug-Discovery"><strong>Module 8 (Elective): Drug Discovery (7.5 credits)</strong></a></summary>
+<summary><a href="./Module08-Drug-Discovery/"><strong>Module 8 (Elective): Drug Discovery (7.5 credits)</strong></a></summary>
 
-Target ID → preclinical → clinical evaluation; end-to-end drug development overview.  
+Covers the drug development pipeline from target identification through preclinical development to clinical trials.  
 **Assessment:** Coursework + online exam  
-**Leads:** Dr Barrie Peck, Dr Tanya Soliman
+**Leads:** Dr Barrie Peck, Dr Tanya Soliman  
 
 </details>
 
 <details>
-<summary><a href="./Module09-Cancer-Screening-and-Prevention"><strong>Module 9 (Elective): Cancer Screening & Prevention (7.5 credits)</strong></a></summary>
+<summary><a href="./Module09-Cancer-Screening-and-Prevention/"><strong>Module 9 (Elective): Cancer Screening & Prevention (7.5 credits)</strong></a></summary>
 
-Epidemiology, risk factors, prevention; screening (breast/cervical/bowel/HPV), cytosponge, MCED.  
-**Leads:** Dr Judith Offman, Prof. Peter Sasieni (Wolfson Institute of Population Health)
+Epidemiology, modifiable risk factors, prevention strategies, and cancer screening (breast, cervical, bowel, HPV). Includes discussion of cytosponge and multicancer early detection.  
+**Leads:** Dr Judith Offman, Prof. Peter Sasieni (Wolfson Institute of Population Health)  
 
 </details>
 
 <details>
-<summary><a href="./Module10-Cancer-Genomics-and-Data-Science-Research-Project"><strong>Module 10: CAN7036 & CAN7136 – Research Project (75 credits)</strong></a></summary>
+<summary><a href="./Module10-CAN7036-AND-CAN7136-Cancer-Genomics-and-Data-Science-Research-Project/"><strong>Module 10: CAN7036 & CAN7136 – Research Project (75 credits)</strong></a></summary>
 
-Independent research project (BCI/QMUL/partners): apply analytics, investigation & communication.  
-**Assessment:** 20% presentation, 80% dissertation
+Independent project applying genomics and data science skills in BCI/QMUL or partner labs. Focus on novel bioinformatics/computational research questions.  
+**Assessment:** 20% presentation, 80% dissertation  
 
 </details>
 
