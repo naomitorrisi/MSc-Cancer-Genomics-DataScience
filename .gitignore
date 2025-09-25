@@ -11,3 +11,8 @@ __pycache__/
 # Logs
 *.log
 
+
+# Office temp/lock files
+~
+# macOS metadata
+.DS_Store
