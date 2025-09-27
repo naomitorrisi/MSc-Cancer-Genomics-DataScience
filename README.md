@@ -194,4 +194,4 @@ This project is licensed under the terms of the [MIT License](LICENSE).
 ```
 
 ## 🎓 Codecademy
-Check out my learning progress on [Codecademy](https://www.codecademy.com/profiles/@naomit26)
+Check out my [Codecademy Profile](https://www.codecademy.com/profiles/naomit26)
