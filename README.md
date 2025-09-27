@@ -185,12 +185,6 @@ git clone https://github.com/naomitorrisi/MSc-Cancer-Genomics-DataScience.git
 cd MSc-Cancer-Genomics-DataScience
 cd Module01-CAMN940-Genomics-Approaches-to-Cancer/notebooks
 jupyter notebook
-
----
-
-## 📜 License
-
-This project is licensed under the terms of the [MIT License](LICENSE).
 ```
 
 ## 🎓 Codecademy
