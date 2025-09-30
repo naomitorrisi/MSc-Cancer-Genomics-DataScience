@@ -16,3 +16,13 @@ __pycache__/
 ~
 # macOS metadata
 .DS_Store
+
+# RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.nb.html
+*.Rproj
+.DS_Store
+~
