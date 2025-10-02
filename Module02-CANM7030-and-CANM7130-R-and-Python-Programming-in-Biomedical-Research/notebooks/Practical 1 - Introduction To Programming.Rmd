@@ -24,9 +24,6 @@ As you can see this outputs the results of the code below the chunk. R notebooks
 You could then send this report on to someone else who will be able to look at your results without needing to run any of the code.
 
 Chunks can be added either by pressing ALT + CTRL + i. Try adding a chunk below this!
-```{r}
-
-```
 
 #### Exercise 1: Create a chunk below this line of text
 
@@ -180,27 +177,16 @@ These also all work with brackets,
 
 ```{r}
 ## Run a calculation and store the result in a variable called y
-y <- 75 + 81
 ## add x (the 6 we stored earlier) and y
-x + y
 ## multiply y by x
-x * y
-y * x
 ## Determine whether y is greater than x
-y < x 
-y > x
-y >= x
 ## Below sample will randomly generate a vector of 10 numbers between 1 and 100
 vector_1 <- sample(1:100, 10, replace = TRUE)
 vector_2 <- sample(1:100, 10, replace = TRUE)
 ## Multiply vector_1 and vector_2 together and store the output as vector_3
-vector_3 <- vector_1 * vector_2
 ## Determine which entries are higher in vector_1 than vector_2
-vector_1 > vector_2
 ## Find the entries in vector_3 that are lower than 500
-vector_3[vector_3 < 500]
 ## Find the entries in vector_3 that are higher than 500 and lower than 1000
-vector_3[vector_3 > 500 & vector_3 < 1000]
 ```
 
 ## R data types
@@ -320,7 +306,7 @@ Factors don't actually store the values as the strings, but they use the number 
 
 For example in the factor above, R stores the data as:
 1, 1, 2, 1, 2, 2
-,
+
 Where 1 refers to the first level (control) and 2 refers to the second level (drug)
 
 ```{r}
@@ -395,13 +381,9 @@ The command droplevels can be used to remove unused levels, notice how this func
 
 ```{r}
 ## Create your own string and store it in the environment
-"naomi"
 ## Create a vector and store it in the environment
-name <- c("naomi", "matt", "james")
-name
 ## Using the vector below, create a factor and set the levels to reverse alphabetical order
 makeMeAFactor <- c("AML", "AML","DLBCL", "FL", "FL", "AML")
-sort(makeMeAFactor, decreasing = TRUE)
 ```
 
 ### Dataframes
@@ -458,11 +440,8 @@ mtcars[c("Mazda RX4", "Pontiac Firebird"), c("mpg", "hp")]
 
 ```{r}
 ## return only rows 10 to 30 of the iris dataframe
-iris[10:30,]
 ## return only the disp for the Honda Civic
-mtcars["Honda Civic","disp"]
 ## return only the rows 10, 15, 17 and 18 for the iris dataframe and columns Sepal.Width and Species
-iris[c(10, 15, 17, 18),c("Sepal.Width", "Species")]
 ```
 
 ### Lists
@@ -515,8 +494,7 @@ ourList <- setNames(ourList, c("string",
                    "vector_of_numbers",
                    "matrix_of_strings",
                    "matrix_of_numbers",
-                   "ourFactor",
-                   "my Name is Naomi"))
+                   "ourFactor"))
 ```
 
 You can then access each item using either $itemName or [["itemName"]]
@@ -547,7 +525,6 @@ ourList[["iris"]] <- iris
 ```{r}
 ## Add a string to the list
 ## Get the matrix_of_numbers from the list and multiply it by the list item called numeric
-ourList[["matrix_of_numbers"]]*ourList[["numeric"]]
 ```
 
 We will be playing with all these data types in later practical sessions but hopefully this has given you a brief overview of how to start using R.
