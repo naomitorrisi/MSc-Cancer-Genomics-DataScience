@@ -1,0 +1,531 @@
+---
+title: "Practical 1 - Introduction to Programming"
+author: "Findlay Copley"
+output: html_notebook
+---
+
+# Welcome to R 
+
+In this first practical session we're just going to get familiar with working in R
+
+## A note on R notebooks
+
+This document is called an R notebook. It's a fancy way of keeping both the analysis and thoughts on the data in one place.
+
+Below is a thing called a chunk. These are the parts of an R notebook that allow you to run code. You can run them by pressing the green arrow at the side of the grey box. 
+
+```{r}
+## I am a comment
+"I am a chunk of code"
+```
+
+As you can see this outputs the results of the code below the chunk. R notebooks lets you show your thoughts in the text, the code you ran and your output. And they'll even output an html file when you save! Save this document and check the directory this file is stored in and you should see that the .html file has updated to include your analysis.
+
+You could then send this report on to someone else who will be able to look at your results without needing to run any of the code.
+
+Chunks can be added either by pressing ALT + CTRL + i. Try adding a chunk below this!
+
+#### Exercise 1: Create a chunk below this line of text
+
+Lets think about the code we just ran. "I am a chuck of code" is a string, which we spoke about in the lectures. If you don't store a variable as somthing (with <- or =) then by default, R will print it out
+
+```{r}
+1 + 5
+```
+
+You can see that R just prints out 6 (the result of adding 5 to 1). If we store that result as a variable however:
+
+```{r}
+x <- 1 + 5
+```
+
+There is no output!
+
+But we can always just call the variable to check the value:
+
+```{r}
+x
+```
+
+So now we have the value 6 stored as an object in our environment.
+
+## Maths in R
+
+R is a statistical programming language, and as such maths and stats are its primary purpose.
+
+Below are a few demonstrations of how to run some simple maths in R
+
+```{r}
+## Addition
+2 + 2
+## Subtraction
+2 - 2
+## Multiplication
+2 * 2
+## Division
+2/2
+## powers
+2^2
+## Two plus one divided by 7
+2 + 1 / 7
+## Two plus one, then divided by 7
+(2 + 1) / 7
+```
+
+You're not restricted to just using two numbers either. Lets look at some vectors
+
+```{r}
+## Store the numbers 1, 2, 3, 4 and 5 as an object called foo
+foo <- c(1,2,3,4,5)
+## add 100 to this object
+foo + 100
+## Store the numbers 100, 1, 100, 1 and 100 as an object called bar
+bar <- c(100,1,100,1,100)
+foo + bar
+```
+
+When you add a value to a vector it adds that value to each item in the vector.
+
+When you add two vectors together, the values in vector 1 are added to the values in vector 2. Note that they are added to the values in the same position.
+
+i.e.
+
+foo + bar will do the following:
+
+1 + 100
+2 + 1
+3 + 100
+4 + 1
+5 + 100
+
+This functionality lets us run a lot of individual calculations all at once - As long as you're doing the same thing! e.g. addition.
+
+### Relational Operators
+
+Relational operators are a way to test one object against another. Below are some examples:
+
+```{r}
+## Equal to
+2 == 2
+## Not equal to
+2 != 1
+## Less than
+2 < 1
+## Greater than
+2 > 1
+## Less than *or* equal to
+2 <= 2
+## Greater than *or* equal to
+2 >= 7
+```
+
+These will return TRUE if the statement is true (2 does equal 2) or FALSE if it is false (2 is not less than 1).
+
+Again these can be run on vectors
+
+```{r}
+## Test whether the values in foo are less than the values in bar
+foo < bar
+```
+
+Again this tests the values in the same positions so this is equivalent to doing:
+
+1 < 100         (TRUE)
+2 < 1           (FALSE)
+3 < 100         (TRUE)
+4 < 1           (FALSE)
+5 < 100         (TRUE)
+
+## Logical Operators
+
+You may have noticed the ! in "not equal to" !=
+
+! is used to mean NOT. Here are a few different logical operators
+
+```{r}
+## NOT
+## NOT equal to
+! 2 == 2
+## this can also be written as:
+2 != 2
+## NOT less than
+! 2 < 2
+## OR
+## Less than OR equal to
+2 < 2 | 2 == 2
+## AND
+## Less than AND equal to
+2 < 2 & 2 == 2
+```
+
+And again these can be done using vectors
+
+```{r}
+## Less than 3 OR greater than 4
+foo < 3 | foo > 4
+## equal to 3 or less than or equal to 1
+foo == 3 | foo <= 1
+## less than 5 and greater than 2 and NOT equal to 3
+foo < 5 & foo > 2 & ! foo == 3
+```
+
+Whilst these examples are slightly abstract you can see how you can string several operators together to define specific subsets of your data.
+
+These also all work with brackets, 
+
+#### Exercise 2: Operators
+
+```{r}
+## Run a calculation and store the result in a variable called y
+## add x (the 6 we stored earlier) and y
+## multiply y by x
+## Determine whether y is greater than x
+## Below sample will randomly generate a vector of 10 numbers between 1 and 100
+vector_1 <- sample(1:100, 10, replace = TRUE)
+vector_2 <- sample(1:100, 10, replace = TRUE)
+## Multiply vector_1 and vector_2 together and store the output as vector_3
+## Determine which entries are higher in vector_1 than vector_2
+## Find the entries in vector_3 that are lower than 500
+## Find the entries in vector_3 that are higher than 500 and lower than 1000
+```
+
+## R data types
+
+As we discussed in the lecture, there are many different ways you can store data in R
+
+Below are a few examples.
+
+R Notebook TIP:
+
+As above you can run the whole chunk using the green arrow, but you can also run it by placing your cursor in the chunk and pressing CTRL + SHIFT + Enter. You can run a single line by moving your cursor to the line and pressing CTRL + enter, and if you highlight multiple lines you can run just those lines with the same command. Try these different methods out on the chunk below!
+
+```{r}
+## Strings are text
+string <- "this is a string"
+string
+## numeric is the name for numbers
+numeric <- 123.456
+numeric
+## Vectors hold multiple entries of ONE type of data
+vector_of_strings <- c("this", "is", "a", "vector")
+vector_of_strings
+vector_of_numbers <- c(1, 2, 3, 4, 5)
+vector_of_numbers
+## A Matrix is a 2 dimensional structure holding one type of data
+## you can set the dimensions of the matrix using ncol (for number of columns)
+## or nrows for number of row
+## You need to provide enough data for each row/column to be of equal length
+matrix_of_strings <- matrix(c("this", "is", "a", "matrix"), ncol = 2)
+matrix_of_strings
+matrix_of_numbers <- matrix(c(1, 2, 3, 4, 5, 6), ncol = 2)
+matrix_of_numbers
+```
+
+### A note on mixed data types in vectors and matricies 
+
+Vectors and matricies can only hold *one* type of data. If you have more than one type it will be converted into strings
+
+```{r}
+vector_of_mixed_data <- c(1, "two", 3, "four", 5)
+vector_of_mixed_data
+matrix_of_mixed_data <- matrix(c(1, "Two", 3, 4, "Five", 6), ncol = 2)
+matrix_of_mixed_data
+```
+
+You can see that all the values in the mixed vector and matrix have quotation marks around them signifying the fact that they are now all strings.
+
+It's often best to try and keep different data types separated so that you know how R will store it.
+
+### A note on maths with matricies
+
+You can do maths on a numeric matrix. See some examples below
+
+```{r}
+## delete 100 from all numbers
+matrix_of_numbers - 100
+## multiply the matrix by 100
+matrix_of_numbers * 100
+## Multiply the matrix by a vector
+matrix_of_numbers * c(1, 100, 1)
+```
+
+IMPORTANT: the matrix will be multiplied by the vector in a vertical fashion
+So here each column of three entries was multiplied by the vector of 3 entries
+
+```{r}
+matrix_of_numbers * c(1, 100)
+```
+
+*Here* we have only supplied two numbers in the vector. This means the first two items are multiplied as above
+Then the vector restarts, for the third value in column one, before jumping to the first item of column two and so on ...
+
+if we write out what has happened it would look like this
+
+1 * 1           Column 1, vector entry 1
+2 * 100         Column 1, vector entry 2
+3 * 1           Column 1, vector entry 1 (The vector has stared to repeat)
+4 * 100         Column 2, vector entry 2 (Now we move from column 1 to column 2, but the vector doesn't start again)
+5 * 1           Column 2, vector entry 1 (The vector repeats again)
+6 * 100         Column 2, vector entry 2
+
+This can be a little confusing, but it's important to keep in mind!
+
+Finally you can do maths using two matrices too!
+
+```{r}
+matrix_of_numbers * matrix_of_numbers
+```
+
+### Factors
+
+Factors are a way to represent categorical data. They really shine when you have multiple entries with only a few unique values.
+
+For example, imagine an experiment with 6 samples. 3 were treated with a drug, and the other 3 were the controls. Here you only have two options, drug or control, spread across the six samples.
+
+Factors have an additional component called "levels" these contain all the unique values in the factor
+
+```{r}
+## A vector might contain repeated values.
+## For example imagine a vector of 6 samples, either control or drug treated
+vector_with_duplicates <- c("control", "control", "drug", "control", "drug", "drug")
+vector_with_duplicates
+## We can generate a factor of these data
+ourFactor <- factor(vector_with_duplicates)
+ourFactor
+```
+
+As you can see the factor returns the input values as well as the "levels" component.
+
+You can pull out just the levels like this
+
+```{r}
+levels(ourFactor)
+```
+
+Factors don't actually store the values as the strings, but they use the number that corresponds to the correct level (don't worry if this doesn't make sense) meaning they can store a lot of data with less memory.
+
+For example in the factor above, R stores the data as:
+1, 1, 2, 1, 2, 2
+
+Where 1 refers to the first level (control) and 2 refers to the second level (drug)
+
+```{r}
+as.numeric(ourFactor)
+```
+
+In this example the memory benefits are small, but with 1000s of entries the savings of factors add up.
+
+#### Levels
+
+By default the levels will be assigned alphabetically, but you can specify any order you want:
+
+```{r}
+ourFactor <- factor(vector_with_duplicates, levels = c("drug", "control"))
+ourFactor
+```
+
+Now, with the levels swapped, the factor is storing 2, 2, 1, 2, 1, 1, with 2 being control and 1 being drug
+
+```{r}
+as.numeric(ourFactor)
+```
+
+So just be careful when converting factors into numbers.
+
+#### subsetting vectors and factors
+
+You can subset these 1 dimensional objects using [vectorOfItemsToKeep]
+
+for example if you want the first three items in a vector
+
+```{r}
+vector_of_strings[c(1,2,3)]
+```
+
+A neat trick in R is quickly generating a series of numbers. You can do this with start:end
+
+```{r}
+1:3
+```
+
+This can be used to help speed up subsetting
+
+```{r}
+vector_of_strings[1:3]
+```
+
+Now we'll get the first two items in the factor
+
+```{r}
+ourFactor[1:2]
+```
+
+Ah! Can you see something odd here?
+
+We've still got the level "drug" despite it no longer existing in the factor! This isn't an error, factors will retain all the levels they're given EVEN when they no longer occur in the data. However, sometimes we want to restrict levels to only things that exist in the data
+
+```{r}
+## Taking the first two controls from the factor
+ourFactor[1:2]
+## Control is still set to 2 as control is the second level
+as.numeric(ourFactor[1:2])
+## Droplevels removes the unused levels in a factor
+droplevels(ourFactor[1:2])
+## We can see that the numeric value for the factor is still the same (control is still the first level)
+as.numeric(droplevels(ourFactor[1:2]))
+```
+
+The command droplevels can be used to remove unused levels, notice how this function changes the numerical value, as control is now the first (only) level.
+
+### Exercise 3: Object manipulation
+
+```{r}
+## Create your own string and store it in the environment
+## Create a vector and store it in the environment
+## Using the vector below, create a factor and set the levels to reverse alphabetical order
+makeMeAFactor <- c("AML", "AML","DLBCL", "FL", "FL", "AML")
+```
+
+### Dataframes
+
+Dataframes are another 2 dimensional container, but they only require each *column* to be a single datatype. R has some built in dataframes which we can look at for now
+
+```{r}
+## mtcars
+## Information on a bunch of cars
+mtcars
+## Every column here is numeric
+## Iris
+## Measurements from 50 flowers from 3 species of iris
+iris
+## Here you can see that the Sepal.Length, Sepal.Width, Petal.Length and Petal.Width columns are all numeric values, whilst Species is a factor made up of strings.
+```
+
+## subsetting dataframes
+
+You can subset dataframes using [rows,columns]
+
+```{r}
+## You can subset by the rows
+iris[1:10,]
+## Or by columns
+iris[,1:2]
+## Or by both
+iris[1:10,1:2]
+```
+
+As the columns of iris have names, we can use these for subsetting
+
+```{r}
+## check column names for dataframe iris
+colnames(iris)
+## Returning just one column actually returns the values for that column
+iris[,c("Sepal.Length")]
+## Returning multiple columns returns a subset of the dataframe
+iris[,c("Sepal.Length","Sepal.Width")]
+```
+
+mtcars has names for the rows and columns so we can do the same thing
+
+```{r}
+## Check column names for dataframe mtcars
+colnames(mtcars)
+## Check row names for dataframe mtcars
+rownames(mtcars)
+## get the mpg and hp columns and the Mazda RX4 and Pontiac Firebird cars
+mtcars[c("Mazda RX4", "Pontiac Firebird"), c("mpg", "hp")]
+```
+
+#### Excersies
+
+```{r}
+## return only rows 10 to 30 of the iris dataframe
+## return only the disp for the Honda Civic
+## return only the rows 10, 15, 17 and 18 for the iris dataframe and columns Sepal.Width and Species
+```
+
+### Lists
+
+Finally we have lists.
+
+Lists store any number of any R objects.
+
+They can be quite useful to store related analyses etc ...
+
+Here we make a list of all the data we've generated above
+
+```{r}
+## Create a list of the various objects we've made
+ourList <- list(string,
+                numeric,
+                vector_of_strings,
+                vector_of_numbers,
+                matrix_of_strings,
+                matrix_of_numbers,
+                ourFactor
+                )
+ourList
+```
+
+This isn't a particularly human readable way of storing the data, but it will let you access anything you need easily!
+
+However, it helps to name the items of the list.
+
+You can do this at creation like this:
+
+```{r}
+ourList <- list(string = string,
+                numeric = numeric,
+                vector_of_strings = vector_of_strings,
+                vector_of_numbers = vector_of_numbers,
+                matrix_of_strings = matrix_of_strings,
+                matrix_of_numbers = matrix_of_numbers,
+                ourFactor = ourFactor
+                )
+ourList
+```
+
+Or after creation, using the setNames command:
+
+```{r}
+ourList <- setNames(ourList, c("string",
+                   "numeric",
+                   "vector_of_strings",
+                   "vector_of_numbers",
+                   "matrix_of_strings",
+                   "matrix_of_numbers",
+                   "ourFactor"))
+```
+
+You can then access each item using either $itemName or [["itemName"]]
+
+```{r}
+## Using $
+ourList$string
+## using [[]]
+ourList[["string"]]
+## When using single [] you return a subset of the list, rather than the item itself
+ourList["string"]
+## You can see the title still there!
+## You can use a vector of names in single [] to get multiple items from the list
+ourList[c("string", "vector_of_strings")]
+```
+
+You can do the same thing to add items to the list:
+
+```{r}
+## Add with $
+ourList$mtcars <- mtcars
+## Add with [[]]
+ourList[["iris"]] <- iris
+```
+
+#### Exercise 4: lists
+
+```{r}
+## Add a string to the list
+## Get the matrix_of_numbers from the list and multiply it by the list item called numeric
+```
+
+We will be playing with all these data types in later practical sessions but hopefully this has given you a brief overview of how to start using R.
+
