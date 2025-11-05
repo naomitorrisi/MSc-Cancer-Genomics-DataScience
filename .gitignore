@@ -32,3 +32,6 @@ __pycache__/
 ~.xlsx
 ~.pptx
 Downloads/
+# Allow HTML files in the Python notebooks folder
+!Module02-CANM7030-and-CANM7130-R-and-Python-Programming-in-Biomedical-Research/notebooks/Python/**/*.html
+
