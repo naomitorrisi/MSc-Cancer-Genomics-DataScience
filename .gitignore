@@ -31,4 +31,7 @@ __pycache__/
 ~.xlsx
 ~.pptx
 Downloads/
+# Allow nb.html files in the R coursework folder
+!Module02-CANM7030-and-CANM7130-R-and-Python-Programming-in-Biomedical-Research/notebooks/R/**/*.nb.html
+!Module02-CANM7030-and-CANM7130-R-and-Python-Programming-in-Biomedical-Research/notebooks/R/**/*.html
 
