@@ -31,10 +31,14 @@ __pycache__/
 ~.xlsx
 ~.pptx
 Downloads/
-# Allow nb.html files in the R coursework folder
-!Module02-CANM7030-and-CANM7130-R-and-Python-Programming-in-Biomedical-Research/notebooks/R/**/*.nb.html
-!Module02-CANM7030-and-CANM7130-R-and-Python-Programming-in-Biomedical-Research/notebooks/R/**/*.html
+# Ignore all knitted or rendered HTML outputs
+*.html
+*.nb.html
 
+# But allow HTMLs that are intentionally published via GitHub Pages
+!docs/**/*.html
+!docs/**/*.nb.html
 
-# Allow R coursework nb.html files
-Module02-CANM7030-and-CANM7130-R-and-Python-Programming-in-Biomedical-Research/notebooks/R/R Programming Coursework - Naomi Torrisi/R_Coursework_Naomi_Torrisi.nb.htmlCANM7030-and-CANM7130-R-and-Python-Programming-in-Biomedical-Research/notebooks/R/**/*.nb.html
+# Ignore specific R coursework HTML files (keep local only)
+Module02-CANM7030-and-CANM7130-R-and-Python-Programming-in-Biomedical-Research/notebooks/R/**/*.nb.html
+
