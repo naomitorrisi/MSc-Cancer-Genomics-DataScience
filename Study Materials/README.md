@@ -1,6 +1,6 @@
 # 📚 Study Materials
 
-This folder contains reference documents, lecture notes, and supporting materials used during the **MSc Cancer Genomics & Data Science** programme.
+This folder contains reference documents, key papers, and supporting materials used during the **MSc Cancer Genomics & Data Science** programme.
 
 ## 🗂️ Contents
 - Module reading lists and key papers  
