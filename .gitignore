@@ -4,6 +4,9 @@
 # Python
 __pycache__/
 *.pyc
+# Ignore Jupyter auto-generated notebooks
+Untitled*.ipynb
+
 
 # Mac
 .DS_Store
