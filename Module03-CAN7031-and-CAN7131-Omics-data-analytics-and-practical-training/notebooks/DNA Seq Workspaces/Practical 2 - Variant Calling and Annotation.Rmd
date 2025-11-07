@@ -1,0 +1,248 @@
+---
+title: "DNAseq Practical 2"
+output: html_notebook
+---
+
+## Startup 
+
+Once again we need to login
+
+```{bash}
+ssh hfx472@login.hpc.qmul.ac.uk
+```
+
+Start up an interactive session
+
+```{bash}
+qlogin -pe smp 1 -l h_vmem=4G -l h_rt=1:0:0
+```
+
+And move into the project directory
+
+```{bash}
+cd ~/20251103-DNAseq
+```
+
+## Variant calling
+
+Here we're just looking for variants in a single sample without a matched normal sample. To do this we're going to use Varscan2. This software doesn't need to be installed, you just need the .jar file. Lets get this first. cd into your project directory and copy the jar file.
+
+```{bash}
+cd ~/20251103-DNAseq
+cp -vR /data/teaching/bci_teaching/DNAseq/VarScan.v2.4.3.jar ./
+```
+
+### Varscan2
+
+We need to load java and samtools first in order to run VarScan.
+
+```{bash}
+module load java
+module load samtools
+```
+
+Then make an output directory
+
+```{bash}
+## Make a VCF directory
+mkdir VCF
+mv VCf VCF
+```
+
+Varscan takes a pileup file as the input. We can generate this from the BAM file with samtools and pipe it directly into Varscan.
+
+Piping like this reduces the number of interstitial files you are generating.
+
+Pileup arguments
+q - minimum alignment score - exclude poorly aligned reads
+f - reference genome
+
+VarScan arguments
+--min-coverage - minimum number of reads covering a variant
+--min-avg-qual - minimum base quality for a read to be counted
+--min-read2 - minimum number of alternative allele reads for a variant to count
+--p-value - maximum p-value for the fishers exact test
+--min-var-freq - minimum ratio of alternative reads too reference reads (i.e 0.01 = 1%)
+
+```{bash}
+## Run Variant Calling with varscan
+samtools mpileup \
+        -q 20 \
+        -f Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa \
+        Alignment/FL75820.recalib.bam |
+java -jar VarScan.v2.4.3.jar mpileup2snp \
+        --min-coverage 20 \
+        --min-avg-qual 20 \
+        --min-read2 4 \
+        --p-value 0.2 \
+        --min-var-freq 0.01 \
+        --strand-filter 1 \
+        --output-vcf 1 > VCF/FL75820.vcf
+```
+
+Now we have some variant calls! Take a look at them with the following command:
+
+```{bash}
+less VCF/FL75820.vcf
+```
+
+press "q" to quit when you're done
+
+Importantly here we're just calling variants on a sample - without taking a matched normal (or even a panel of normals into account). This is a basic approach, but if you have time/normal samples you can use more powerful tools like Mutect2 from gatk.
+
+### Mutect2
+
+When you have both a tumour and a normal sample you could use Mutect2 as below:
+
+```{bash}
+gatk Mutect2 \
+     -R reference.fa \
+     -I tumor.bam \
+     -I normal.bam \
+     -normal normal_sample_name \
+     -O somatic.vcf.gz
+     
+gatk FilterMutectCalls \
+   -R reference.fa \
+   -V somatic.vcf.gz \
+   -O filtered.vcf.gz
+```
+
+Mutect2 also has several additional options to further filter variants. For example, if you have variant calls in several *unmatched* normal samples you can generate a panel of normals and add these into the variant calling using the "--panel-of-normals" option.
+
+Several publications have suggested running two or more different variant calling programs and then taking he consensus variants forward for downstream analysis.
+
+## Annotation
+
+We're going to use annovar for our annotation. First we need to load the software
+
+```{bash} 
+module load annovar
+```
+
+Annovar needs the data to be in a specific format to run, fortunately it provides us with the "convert2annovar.pl" perl package which we can use to quickly change our varscan VCF into the correct format.
+
+convert2annovar arguments
+--includeinfo - retains all the information in the file
+--filter PASS - keeps only those variants with PASS in the filter column
+--outfile - filename for the annovar ready calls
+
+```{bash}
+convert2annovar.pl --format vcf4 \
+        VCF/FL75820.vcf \
+        --includeinfo \
+        --filter PASS \
+        --outfile VCF/FL75820.pass.vcf
+```
+
+Now that our calls are ready to be processed we can run them through annovar.
+
+The databases that we use can be download directly through annovar using the following command:
+
+```{bash}
+annotate_variation.pl -buildver ReferenceVersion \
+    -downdb \
+    -webfrom annovar \
+    DatabaseName \
+    localStorageLocation
+```
+
+The names of the avaliable databases can be found here: https://annovar.openbioinformatics.org/en/latest/user-guide/download/
+
+You don't need to do this as these have already be downloaded for you!
+
+First we're going to use 2 population databases to filter out positions that occur in >1% of cases
+
+```{bash}
+##Filter out mutations from 1000 genomes with maf > 0.01
+annotate_variation.pl -filter \
+        -dbtype 1000g2015aug_all \
+        -buildver hg38 \
+        -out VCF/FL75820 \
+        VCF/FL75820.pass.vcf \
+        Reference/humandb/ \
+        -maf 0.01
+##Filter our mutations in exome sequencing project with maf > 0.01
+annotate_variation.pl -filter \
+        -dbtype esp6500siv2_all \
+        -buildver hg38 \
+        -out VCF/FL75820 \
+        VCF/FL75820.hg38_ALL.sites.2015_08_filtered \
+        Reference/humandb/ \
+        -score_threshold 0.01
+```
+
+Here we are using the files found in the Reference/humandb/ folder to check our positions and dropping all those that exist in >1% of the population of these databases 
+
+Finally we're able to run the annotation on our variant calls.
+
+We're going to use Refgene to get gene level information, then find whether these variants exist in dbSNP or COSMIC and finally annotate the variants with the their cytoband information.
+
+```{bash}
+## Annotate the VCF giving Refgene, dbSNP, cosmicID, cytoband
+table_annovar.pl \
+        -buildver hg38 \
+        -out VCF/FL75820 \
+        VCF/FL75820.hg38_esp6500siv2_all_filtered \
+        Reference/humandb/ \
+        -remove \
+        -otherinfo \
+        -protocol refgene,avsnp150,cosmic92_coding,cytoband \
+        -operation g,f,f,r -nastring .
+```
+
+Now we have our annotated variant calls!
+
+Lets download them. On your local machine run the following:
+
+```{bash}
+scp username@login.hpc.qmul.ac.uk:~/20251103-DNAseq/VCF/FL75820.hg38_multianno.txt ./
+```
+
+Now we can look at these in R!
+
+## Examining our variant calls
+
+The otherinfo columns currently don't have headers, but we can add these as we load the file
+
+```{r}
+require(tidyverse)
+read.delim("/Users/naomi/Downloads/FL75820.hg38_multianno.txt")
+variants <- read.delim("/Users/naomi/Downloads/FL75820.hg38_multianno.txt", header = FALSE)
+headings <- c("chr", "position","id", "ref", "alt", "qual", "filter", "info", "format" ,"sample")
+Annotated_variants <- setNames(variants[-1,], c(variants[1,1:13] %>% unlist(), headings))
+
+```
+
+We also have all the counts stored as a string, making it hard to use for filtering etc ...
+
+```{r}
+headings <- str_split(Annotated_variants$format[1], ":") %>% unlist()
+AlleleCounts <- str_split(Annotated_variants$sample, ":") %>% do.call("rbind", .) %>% as.data.frame() %>% setNames(headings)
+AlleleCounts
+## FREQ has a % in the name, which will cause issues for filtering later! Lets also make it a numeric column
+AlleleCounts <- mutate(AlleleCounts, FREQ = gsub("%", "", FREQ) %>% as.numeric())
+AlleleCounts
+Annotated_variants <- cbind(Annotated_variants, AlleleCounts)
+Annotated_variants
+separate(Annotated_variants, sample, into = headings, sep = ":")
+```
+
+Now lets look for just those exonic non-synonymous variants!
+
+```{r}
+Annotated_variants_exonic <- subset(
+  Annotated_variants,
+  Func.refGene == "exonic" &
+    ExonicFunc.refGene != "synonymous SNV"
+)
+Annotated_variants_exonic
+```
+
+Finally we can see which variants have a variant allele frequency of > 10%
+
+```{r}
+subset(Annotated_variants_exonic, FREQ > 10)
+```
+
+So we've now taken our raw fastq files and managed to find that this sample had a homozygous variant in TP53. Looking into this variant we can see that it has been previously described and is found in the dbSNP database (rs730882000). It is also found in the Catelogue of Somatic Mutations in Cancer (COSMIC) database, strongly suggesting that this variant may play a role in the patients disease.

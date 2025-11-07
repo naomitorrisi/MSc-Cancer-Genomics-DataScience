@@ -1,0 +1,103 @@
+---
+title: "MSc_Practical_RNASeq_Enrichment"
+output: html_document
+date: '2025-11-03'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Over-representation test
+## Install R packages and load libraries
+```{r}
+BiocManager::install("clusterProfiler")
+library(clusterProfiler)
+
+install.packages("msigdbr")
+library(msigdbr)
+
+#we also need R package dplyr for data wrangling
+install.packages("dplyr")
+library(dplyr)
+```
+
+## Load the C5 collection from MSigDB i.e. Gene Ontologies
+```{r}
+go_gene_sets <- msigdbr(species = "human", collection = "C5")  #Load C5
+
+msigdbr_t2g <- go_gene_sets %>% dplyr::distinct(gs_name,gene_symbol) %>% as.data.frame() # make a dataframe of the genesets and the corresponding Ensemble gene ids
+head(msigdbr_t2g)
+```
+
+## Load the DE results file and subset for significantly upregulated genes
+```{r}
+DE.res <- read.csv("./DE_sensitiveVSresistant_results_wGeneSymbol.csv", header = TRUE, row.names = 1)
+DE.res.sign <- subset(DE.res, padj < 0.05 & log2FoldChange > 1)
+head(DE.res.sign)
+```
+
+## Perform enrichment analysis and write results in a .csv file
+```{r}
+enrichRes <- enricher(gene = DE.res.sign$gene.symbol, TERM2GENE = msigdbr_t2g, pvalueCutoff = 0.05, pAdjustMethod = "BH")
+write.csv(enrichRes@result, file = "./GO_sensitiveVSresistant_up.csv", row.names = FALSE)
+head(enrichRes)
+```
+
+
+# Pre-ranked GSEA
+## Installing packages
+```{r}
+#BiocManager::install("fgsea")
+library(fgsea)
+
+#install.packages("data.table")
+library(data.table)
+
+BiocManager::install("qusage")
+library(qusage)
+
+#install.packages("ggplot2")
+library(ggplot2)
+```
+
+## Load the Gene Set collection (Note you need to download the gmt file of the collection of your interest from MSigDB)
+```{r}
+gmt.file <- read.gmt("./c5.go.bp.v7.4.symbols.gmt")
+head(gmt.file)
+```
+
+## Ranking our DE results
+```{r}
+DE.res.ranked <- DE.res[order(DE.res$log2FoldChange, decreasing = T), ]
+
+DE.ranks <- setNames(DE.res.ranked$log2FoldChange, DE.res.ranked$gene.symbol) # creating a named vector of the ranks
+DE.ranks = DE.ranks[!is.na(names(DE.ranks))]
+DE.ranks = DE.ranks[!duplicated(names(DE.ranks))]
+head(DE.ranks)
+```
+
+
+## Running fgsea
+```{r}
+
+fgseaRes <- fgsea(gmt.file, DE.ranks, minSize=15, maxSize=500)
+head(fgseaRes)
+
+# writing the results into a file
+fwrite(fgseaRes, file = "/Users/naomi/Downloads/Practicals-20251104/PrerankedGSEA_gobp_sensitiveVSresistant.txt", sep = "\t", sep2=c("", " ", ""))
+
+```
+
+## Producing an enrichment plot
+```{r}
+topPathways <- fgseaRes[order(padj)][padj <= 0.05]$pathway
+EnPlot <- plotEnrichment(gmt.file[["GOBP_EPITHELIUM_DEVELOPMENT"]],DE.ranks) + labs(title="GOBP_EPITHELIUM_DEVELOPMENT") + theme(text = element_text(size=20))
+EnPlot2 <- plotEnrichment(gmt.file[["GOBP_OXIDATIVE_PHOSPHORYLATION"]],DE.ranks) + labs(title="GOBP_OXIDATIVE_PHOSPHORYLATION") + theme(text = element_text(size=20))
+
+EnPlot
+EnPlot2
+
+```
+

@@ -1,0 +1,154 @@
+---
+title: "MSc_Practical_RNASeq_DESeq2"
+output: html_document
+date: '2025-11-03'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Installing and loading libraries
+```{r}
+# Install the latest version of DEseq2
+if (!requireNamespace("BiocManager", quietly = TRUE))
+install.packages("BiocManager")
+  BiocManager::install(c("DESeq2", "EnhancedVolcano", "AnnotationDbi", "org.Hs.eg.db"))
+
+install.packages("pheatmap")
+
+# load the libraries
+library(DESeq2)
+library(pheatmap)
+library(EnhancedVolcano)
+library(AnnotationDbi)
+library(org.Hs.eg.db)
+library(pheatmap)
+```
+
+## Loading Input files and creating DESeq2 object
+```{r}
+# Read in the raw read counts
+rawCounts <- read.delim("./counts.txt", header = T, row.names = 1)
+rawCounts <- ceiling(rawCounts) # rsem expected_counts are float numbers , we need to round them up to integers for DESeq2
+head(rawCounts)
+
+# Read in the sample mappings
+sampleData <- read.delim("./sampleGroups.txt", header = T)
+head(sampleData)
+
+
+# Create the DEseq2DataSet object
+dds <- DESeqDataSetFromMatrix(countData = rawCounts,
+                              colData = sampleData,
+                              design = ~ group)
+
+dds
+```
+
+## Filtering out low counts genes
+```{r}
+#a popular filter is to ensure at least X samples with a count of 10 or more, where X can be chosen as the sample size of the smallest group of samples
+
+keep <- rowSums(counts(dds) >= 10) >= 3
+dds <- dds[keep,]
+
+dds
+```
+
+## Run DESeq
+```{r}
+dds <- DESeq(dds)
+```
+
+
+## Extracting normalised counts and vsd transformed counts
+```{r}
+# normalised counts
+norm.counts <- counts(dds, normalized=TRUE)
+write.csv(norm.counts, file="./normalized_counts.csv", row.names=TRUE)
+head(norm.counts)
+
+# vsd (log) transformed counts
+vsd <- vst(dds, blind=FALSE)
+head(assay(vsd),3)
+```
+
+## Unsupervised clustering
+```{r}
+#plotting PCA using the vst transformed counts
+plotPCA(vsd, intgroup=c("group"))
+
+#plotting hierarchical clustering using vst transformed counts
+sampleDists <- dist(t(assay(vsd)))
+plot(hclust(sampleDists, method = "complete"))
+```
+
+## Get results of differential expression analysis
+```{r}
+# Get results differential expression 
+res <- results(dds, contrast=c("group", "chemo_sensitive", "chemo_resistant"))
+
+# View summary of results
+summary(res)
+head(res)
+mcols(res)$description
+
+#Exporting results to csv
+write.csv(as.data.frame(res), file="./DE_sensitiveVSresistant_results.csv")
+```
+
+## Plot dispersion estimates
+```{r}
+plotDispEsts(dds)
+```
+
+## MA plot
+```{r}
+plotMA(res)
+```
+
+## Volcano plot
+```{r}
+EnhancedVolcano(res,
+    lab = rownames(res),
+    x = 'log2FoldChange',
+    y = 'padj')
+```
+
+## Plot counts of the most significantly DE gene
+```{r}
+plotCounts(dds, gene=which.min(res$padj), intgroup="group")
+```
+
+## Visualizing expression data with a heatmap
+```{r}
+de.sign <- subset(res, padj < 0.05 & abs(log2FoldChange) > 1 ) # thresholding for significanlty differentially expressed genes with at least two-ford change in expression
+de.sign.genes <- rownames(de.sign) # creating a vector of Ensembl id for those genes
+
+scale.dat <- t(scale(t(assay(vsd)[de.sign.genes,]))) # subseting the vsd matrix to include only the de.sign.genes and scaling it by row so that we plot on the heatmap - RNA seq values can range vastly so need to scale them down (hence -1.5 to 2 on plot)
+pheatmap(scale.dat[de.sign.genes,], cluster_rows=TRUE, show_rownames=FALSE, cluster_cols=TRUE)
+```
+
+## Annotating the DE results
+```{r}
+
+res.df <- as.data.frame(res) # putting the de.sign into a data.frame to help the next step to work
+res.annot <- mapIds(org.Hs.eg.db, keys = rownames(res.df), keytype = "ENSEMBL", column = "SYMBOL") #mapping ensembl ids to Gene Symbols
+
+res.df.annot <- cbind(res.df,gene.symbol = res.annot) #binding the annotations to the sign.df
+
+head(res.df.annot)
+
+write.csv(res.df.annot, file = "./DE_sensitiveVSresistant_results_wGeneSymbol.csv")
+```
+
+## Re-make a volcano plot using gene symbold as point labels
+```{r}
+EnhancedVolcano(res.df.annot,
+    lab = res.df.annot$gene.symbol,
+    x = 'log2FoldChange',
+    y = 'padj')
+```
+

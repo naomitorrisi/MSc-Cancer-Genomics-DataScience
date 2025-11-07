@@ -1,0 +1,443 @@
+---
+title: "DNAseq Practical 1"
+output: html_notebook
+---
+################################################ LOG IN + PREPARE A WORKSPACE #############################################
+## login to Apocrita
+
+First we need to get onto the Apocrita. We will use ssh to do this.
+
+Open up a terminal (Linux/Mac) or command prompt, or similar, on (Windows)
+
+You will likely need to have your password and an ssh key properly set up in order to access Apocrita.
+
+```{bash}
+ssh username@login.hpc.qmul.ac.uk
+```
+
+#################################### --------PREPARE A WORKSPACE --------- #######################################
+
+Once online we want to create a folder to work in. You can do this using the code below
+
+```{bash}
+mkdir ~/20251103-DNAseq
+```
+
+The HPC is made up of several "nodes", most of these are set up to run all our scripts and do the heavy lifting.
+
+*HOWEVER*, the node you start on after logging in is *NOT* suitable for running resource heavy code.
+
+##################################### START AN INTERACTIVE COMPUTE SESSION SO HEAVY WORK RUNS ON A WORKER NODE NOT THE LOGIN NODE (IE YOUR OWN NODE SPACE) ################################
+
+For these practicals we'll be running our code in an interactive session, but you can also write job scritps and submit them, where they will be distributed across the nodes as needed.
+
+To start an interactive session we need to ask for some space on a worker node
+
+
+```{bash}
+qlogin -pe smp 1 -l h_vmem=4G -l h_rt=1:0:0
+```
+
+Here we're asking for 1 core, 4GB of RAM and 1 hour of runtime. This will be enough for this practical, but you could request more (or less) depending on your needs.
+##################################### CD INTO YOUR PROJECT - YOU HAVE A CLEAN WORKING DIRECTORY ON A COMPUTE NODE READY FOR THE PRACTICAL #################################
+
+qlogin will start up in our home directory (N.B. ~ is a shortcut for your home directory) and we want to get into the project directory we created
+
+```{bash}
+cd ~/20251103-DNAseq
+```
+
+##################################### COPY TEACHING DATA INTO YOUR PROJECT #################################
+
+### Collect the files from the storage location
+
+First we need the reference folder. You can grab this, and all the other files needed for this practical from the following directory:
+
+/data/teaching/bci_teaching/
+
+We will use the command cp with the v (verbose) and R (recursive) options. Next we put the path to the folder we want to copy and then where we want it to be copied to
+
+################### ---------- COPY THE GENOME REFERENCE -------------- ################
+```{bash}
+## Get the Reference folder
+cp -vR /data/teaching/bci_teaching/DNAseq/Reference/ ./
+```
+
+################ -----COPY THE FASTQ_RAW FOLDER ---------- ####################
+
+Then we'll get the FASTQ files
+
+```{bash}
+cp -vR /data/teaching/bci_teaching/DNAseq/FASTQ_Raw/ ./
+```
+
+################## GENOME INDEX (PREBUILT) & INSPECT ###############################
+############ WHERE: APOCRITA
+
+- YOU DIDNT RUN BOWTIE2-BUILD (ALREADY DONE)
+- YOU INSPECTED INDEXES WITH BOWTIE2 IN THE NAME
+INDEXES ARE CALLED EG. GRCh38.108.chr17
+- its expensive to build so its provided
+
+## Index genome
+
+It takes quite some time to generate an index for a genome so we've created it for you. The code below was used to do this so you don't need to run this.
+
+```{bash}
+## Load the bowtie2 program in your shell instance
+module load bowtie2 ################ FIND THE REFERENCE INDEX 
+## Run bowtie2-build, the index building part of Bowtie2
+## The first argument is the fasta file for the genome and the second is the prefex for the genome.
+## Here the index "Bowtie2Idx/GRCh38.108" means the index files will be created in the Bowtie2Idx folder
+## These files will all start GRCh38.108, which is a reference to the genome build and version
+bowtie2-build Homo_sapiens.GRCh38.dna.chromosome.17.fa Bowtie2Idx/GRCh38.108. ################# GRCh38.dna.chromosome.17 IS YOUR REFERENCE
+```
+
+You can look at the index files using the code below
+
+```{bash}
+ls -lrth Reference/Bowtie2Idx/
+```
+
+ls is a really useful bash function. It will list all the files in your current working directory or alternatively at a specific path (Reference/Bowtie2Idx/ for example)
+
+Many bash functions have optional arguments you can supply them, here -lrth
+
+As an aside, many arguments have both long and short names. 
+Short names are one letter and preceeded by a single dash -
+Long names are longer, and preceeded by two dashes --
+
+You can chain the short names together as in the above example to specify multiple arguments at once
+
+Short name | long name | description
+:---: | :---: | ---------- 
+-l |   | Produces a more detailed output 
+-r | --reverse | reverses the order of the files
+-t |   | orders files based on their modification time
+-h | --human-readable | makes the file sizes nicer for humans to read (not raw bytes)
+
+The script will print a bit more information about the files, including filesize, which will now be in human readable format. The files will be sorted in reverse time order, putting the most recently changed files at the bottom
+
+So, you could use the following to do the same thing
+
+```{bash}
+ls -l --reverse -t --human-readable Reference/Bowtie2Idx/
+```
+
+################# RUN A QC CHECK ON EACH FASTA FILE (EACH SAMPLE) ########################
+
+########## WHERE: APOCRITA
+## fastqc
+
+We want to take a look over our data to get a feel for how it looks.
+
+We're going to use the program fastqc to generate some basic QC metrics for the FASTQ files.
+
+```{bash}
+################# RUN A QC CHECK ON EACH FASTA FILE (EACH SAMPLE) 
+## Load the fastqc program ################### you need to make the FastQC program available in your path on Apocrita to do this
+module load fastqc
+## Create a folder for our QC metrics
+mkdir QC
+## run fastqc on the files, storing the output in the QC folder.################ reads each FASTQ file and computes basic metrics (per-base quality scores, GC content, read length distribution, overrepresented sequences/adapters, duplication levels, K-mer content, etc)
+fastqc -o QC/ FASTQ_Raw/* 
+############## runs an interactive report (FASTQC.HTML) and raw FASTQC data file (FASTQC.ZIP) for each input file
+```
+
+################ COMBINE FASTQC FILES SO YOU CAN LOOK AT ALL THE QC IN ONE FILE ####################
+
+We can combine our fastqc files together using multiqc which lets you look at all of the QC in one file.
+
+Unfortunately this isn't installed on the cluster by default, but we can create a virtual anaconda environment and install it on there.
+
+```{bash}
+## load the anaconda software
+module load miniforge
+## create a new anaconda environment named multiqc and install multiqc in it
+mamba create --name multiqc -c bioconda multiqc
+## Activate the virtual environment
+mamba activate multiqc
+## Run multiqc on all files in the folder QC, output the multiqc into that QC directory
+multiqc QC/ -o QC
+## Close the environment
+mamba deactivate multiqc
+
+```
+
+We now want to transfer these files back onto our computers so we can have a look at the QC.
+
+There are lots of ways to do this, but for now we're going to use scp in a terminal window.
+
+Open up a new terminal window on your local machine and use the following code to download your files
+
+You first need to provide your username and url for the HPC, then the folder you want to download, then the folder you want to download the file into. 
+
+```{bash}
+scp username@login.hpc.qmul.ac.uk:~/20251103-DNAseq/QC/multiqc_report.html ./
+
+############### THE CONSOLIDATED MULTIQC REPORT (multiqc_report.html) IS DOWNLOADED TO YOUR MAC WITH SCP - SCP ALLOWS YOU TO SECURELY COPY FILES FROM APOCRITA TO YOUR HOME DIRECTORY #################
+################ OPEN THE FILE IN YOUR FINDER FOLDER TO QUICKLY CHECK BASE QUALITY, ADAPTERS, PER-CYCLING STATS, ETC #####################
+```
+
+Now open up the html file in your web browser and have a look at the data.
+
+## Alignment
+
+########### WHERE: APOCRITA
+############ TAKE EACH READ (MILLIONS OF THEM) IE TINY FRAGMENTS IN THE GENOME ---- AND MAP THEM BACK TO THE REFERENCE GENOME (HERE, CHROMOSOME 17 OF GRCh38) #################
+######## THIS IS WHAT THE PROGRAM BOWTIE2 DOES #####################
+
+We're going to be using bowtie2 for our alignment and then using samtools to sort the file. As Bowtie2 will create an unsorted SAM file. We'll take the output directly out of Bowtie2 and pipe it directly into *samtools sort* to coordinate sort the alignments. 
+
+first we need to use module load to get access to the bowtie2 and samtools software
+
+```{bash}
+module load bowtie2
+module load samtools
+```
+
+Then we need to make a directory to store our alignments in.
+
+```{bash}
+mkdir Alignment
+```
+
+Now we're ready to start our alignments.
+
+####### IN A NUTSHELL: TAKE YOUR RAW REFERENCING READS, COMPARE THEM TO THE REFERENCE GENOME, AND PRODUCE A SORTED BAM FILE THAT TELLS YOU EXACTLY WHERE EACH READ CAME FROM IN THE GENOME - THE ESSENTIAL FIRST STEP IN ANTY DNA-SEQ ANALYSIS: ######### 
+
+############# BOWTIE2 OPENS YOUR FASTAQ FILES ############
+############# FOR EACH READ PAIR, IT SEARCHES THE INDEXED GENOME FOR THE BEST MATCH #############
+############# IT REPORTS EACH MATCH IN SAM FORMAT (SEQUENCE ALIGNMENT/MAP) - A HUMAN-READABLE LISTT OF ALIGNMENTS ###########
+############ INSTEAD OF WRITING THAT GIANT SAM FILE TO DISK, YOU PIPE IT INTO SAMTOOLS SORT, WHICH A) SORTS THE READS BY THE GENOMIC COORDINATE (SO DOWNSTREAM TOOLS CAN READ THEM EFFICIENTLY), B) COMPRESSES THEM INTO A BINARY FORMAT CALLED BAM.
+########### THE RESULT ALIGNMENT/FL75820.BAM IS A COMPACT, ORDERED FILE OF ALL YOUR ALIGNED READS. TYPICALLY 80-90% ALIGNMENT OF READS IN A SAMPLE.
+
+Our data is paired end and so we need to provide both R1 and R2 to the aligner as well as the genome index.
+
+It's also good practice to set your read group information at the alignment step.
+
+The read group (@RG) line of the bam file includes information specific to the sample(s) found in that file. These are occasionally used in downstream steps and are quick annoying to add after the alignment. Especially if the files are large.
+
+You can set read group flags using the --rg option with bowtie2.
+
+Here we will set the ID (Read group ID), SM (Sample name), PL (Platform, only has a few valid options depending on how your data was sequenced) and LB (library) flags.
+
+Read groups are really important when you start to combine data from different sequencing runs or samples in one bam file.
+
+Here we're only using one sample from one sequencing run so we can use the sample ID for these.
+
+```{bash}
+time bowtie2 -p 1 \ 
+        --rg ID:FL75820 \
+        --rg SM:FL75820 \
+        --rg PL:ILLUMINA \
+        --rg LB:FL75820 \
+        -x Reference/Bowtie2Idx/GRCh38.108.chr17 \
+        -1 FASTQ_Raw/FL75820_R1.fq.gz \
+        -2 FASTQ_Raw/FL75820_R2.fq.gz |
+        samtools sort -o Alignment/FL75820.bam -
+        
+######### TIME - MEASURES HOW LONG COMMAND TAKES
+######### BOWTIE2 - THE ALIGNER PROGRAM. IT COMPARES YOUR REFERENCE READS TO THE REFERENCE GENOME
+######### -p 1 - USE 1 CPU CORE (YOU COULD REQUEST MORE FOR SPEED)
+######### ---- rg ID/SM/PL/LB... - ADDS READ GROUP TAGS - METADATA INSIDE THE BAM HEADER THAT SAYS: THIS FILE'S READS COME FROM SAMPLE FL75820 / SEQUENCED ON ILLUMINA / LIBRARY FL75820. THIS HELPS LATER IF YOU MERGE MULTIPLE SAMPLES OR RUNS.
+######## -X... THE REFERENCE GENOME INDEX (A SET OF FILES FROM BOWTIE2 USES TO LOCATE MATCHES QUICKLY)
+######## -1 and -2 - THE PAIRED END READ FILES (R1 AND R2 FASTQCs). THESE ARE YOUR FORWARD AND REVERSE READS
+######### SAMTOOLS READS THE ALIGNMENTS BOWTIE2 JUST MADE, SORTS THEM BY GENOMIC POSITIONM AND SAVES THEM AS A COMPRESSED BAM FILE, THE - TELLS IT TO READ FROM THE PIPE INSTEAD OF A FILE.
+```
+
+The arguments for bowtie2 are:
+argument | description
+--- | ----------
+-p | the number of cores to use (1 here, more will make it go faster)
+--rg XX | set a value for that read group
+-x | the reference index
+-1 | read one
+-2 | read two
+
+samtools sort takes a SAM/BAM file and coordinate sorts it by default. We're also using the -o argument to set the output file.
+
+In bash a new line means a new command. The \ found above at the ends of lines *cancel* the end of line so the code can spread across lines.
+
+The | is a pipe (you might remember this as %>% in R) it takes the output of the command on the left and sends it to the command on the right.
+
+The dash "-" in the samtools command refers to the input from the pipe (similar to "." in R)
+
+
+## Looking at bam files
+
+############# WHERE: APOCRITA
+############## PEEK INSIDE THE BAM FOR SANITY CHECK , GET MAPPED/PROPER-PAIR/DUPLICATE COUNTS IN A ONE LINE STATS SUMMARY ##############
+
+SAM files are plain text and therefore can take up a lot of space. BAM files are a compressed form of SAM files that take up less space. But, they can't just be opened like a SAM file.
+
+Luckily we have samtools here to help.
+
+```{bash}
+samtools view Alignment/FL75820.bam | head -n 3 ############ VIEW THE FIRST FEW ALIGNMENTS
+```
+
+The code above will open a bam file and show you the reads inside. I've piped it to head, a command that shows you the first X lines of a file, the -n option tells it how many to output. So here we're getting the first 3 reads in the bam file.
+
+You might remember that SAM/BAM files include a header with lots of useful information, but this is missing from the output above.
+
+By default samtools view *excludes* the header, but you can change this.
+
+```{bash}
+samtools view -H Alignment/FL75820.bam ########### VIEW THE ALIGNMENT HEADER ONLY
+```
+
+using -H will output *just* the header for a SAM/BAM file
+
+```{bash}
+samtools view -h Alignment/FL75820.bam | head ########### VIEW THE ALIGNMENT HEADER PLUS READS (TOP 10 LINES)
+```
+
+The -h option will output the header followed by the reads (again, I've piped this into head with the default parameters so it will only return the top 10 lines)
+
+## Bam alignment statistics
+
+You'll notice that bowtie2 outputs some information about the alignment of the sequencing. You can also get this information using samtools on the bam file.
+
+```{bash}
+samtools flagstat Alignment/FL75820.bam.   ########### VIEW THE MAPPED/PROPER-PAIR/DUPLICATE COUNTS IN A ONE LINE STATS SUMMARY 
+```
+
+This tool counts up the reads based on their SAM flags and returns these data.
+
+You should see that there are no duplicates in the data - this is because we need to mark them up first!
+
+## Mark Duplicates
+
+############### WHERE: APOCRITA
+########### LOAD GATK (WHICH AUTO LOADS OPENJDK) AND RUN PICARD MARKDUPLICATES VIA GATK #############
+
+
+Now we're going to find and *mark* duplicate reads. This process is non-destructive as potential duplicates are only marked, not removed.
+
+We need to use the Genome Analysis Toolkit for this.
+
+```{bash}
+## load java and gatk
+module load java
+module load gatk
+
+################# RUN PICARD MARKDUPLICATES VIA GATK ####################
+## We're setting the --java-options to reduce the strain of using MarkDuplicates
+## "-Xmx1G" tells Java to just use 1 GB of RAM
+## -I is the input (our aligned bam file)
+## -M is the name of a QC file that will be created in the process of marking
+## -O is the name of the output bam file with duplicate reads marked.
+gatk --java-options "-Xmx1G" MarkDuplicates \
+        -I Alignment/FL75820.bam \
+        -M QC/FL75820.marked \
+        -O Alignment/FL75820.marked.bam
+```
+
+########## RE-CHECK WITH SAMTOOLS FLAGSTAT ALIGNMENT BC PCR CAN CREATE IDENTICAL FRAGMENTS, MARKING DUPLICATES PREVENTS OVERCOUNTING IN VARIANT CALLING
+########### YOU WILL GET A ALIGNMENT/FL75820.BAM FILE WITH DUPLICATE FLAG (0x400) SET, METRICS FILE (QC/FL75820.MARKED) (DUPLICATE COUNTS, LIBRARY COMPLEXITY).
+######### IN THIS EXAMPLE AMPLICON/CHER17 TEACHING SET, DUPLICATES ARE EXPECTEDLY HIGH 
+
+Lets check the alignments now we've marked duplicates!
+
+```{bash}
+samtools flagstat Alignment/FL75820.marked.bam
+```
+
+There we go! Now we've got some duplicates. Actually, a lot of duplicates. The vast majority of our reads are duplicates.
+
+This actually makes a lot of sense as we're looking at *AMPLICON* sequencing, which tends to generate reads that map to identical locations.
+
+## Base Quality Score Recalibration
+
+######## WHY: WHEN A SEQUENCER READS DNA, IT ASSIGNS EACH BASE (A, T, C, G) A QUALITY SCORE, - A NUMBER THAT REFLECTS HOW CONFIDENT THE MACHINE WAS THAT THE BASE WAS CALLED CORRECTLY. BUT THOSE QUALITY SCORES ARENT ALWAYS PERFECT - SYSTEMATIC ERRORS CAN CREEP IN DEPENDING ON; THE SEQUENCING CYCLE (WHERE IN THE READ IT OCCURRED), THE SURROUNDING SEQUENCING CONTEXT (EG. GC-RICH REGIONS), THE MACHINE CHEMISTRY OR LANE EFFECTS.
+########## SO BQSR (A GATK PROCESS), LOOKS FOR PATTERNS OF BIAS IN THOSE SCORES, COMPARED THEM TO A DATABASE OF KNOWN, TRUE VARIANTS AND BUILDS A STATISTICAL MODFEL TO CORRECT THE BASE QUALITY SCORES ACROSS THE WHOLE DATASET.
+######### THE GOAL: MAKE THE BASE QUALITY SCORES MORE ACCURATE, SO THAT THE VARIANT CALLERS CAN TRUST THEM.
+
+Because marked duplicates are excluded in variant calling analysis we're going to run base score recalibration on the original bam file. If your data was hybrid capture etc you would want to use the marked bam file for this step.
+
+First we're going to generate the model using the BaseRecalibrator tool in gatk. This will then create recalibration file we can use to apply the model to the bam file.
+
+Base recalibration requires a list of known, good quality variant calls to build the model, which you supply with the --known-sites option. Here we're using the 1000 genomes list of SNPs.
+
+######## STEP 1- CHECK REFERENCE AND INDEX
+CHECK THAT SOMEHTING LIKE THESE FILES EXIST ...
+Homo_sapiens.GRCh38.108.dna.chromosome.17.fa
+Homo_sapiens.GRCh38.108.dna.chromosome.17.fa.fai
+Homo_sapiens.GRCh38.108.dna.chromosome.17.dict
+####### THESE ARE REQUIRED SO GATK KNOWS...
+WHAT SEQUENCE YOURE ALIGNING TO, 
+HOW LONG EACH CHROMOSOME IS
+CAN QUICKLY JUMP AROUND WITHIN IT
+- WIRTHOUT IT, GATK WOULD THROW AWAY "MISSING SEQUENCE DICTIONARY" OR "MISSING INDEX" ERRORS.
+
+```{bash}
+gatk --java-options "-Xmx1G" BaseRecalibrator \
+        -I Alignment/FL75820.bam \
+        -R Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa \
+        --known-sites Reference/gatkResources/resources_broad_hg38_v0_1000G_omni2.5.hg38.noCHR.vcf \
+        -O Alignment/FL75820.table
+```
+
+N.B. you may have noticed that the genome we are using has the chromosome listed as 17, not chr17. The original known sites vcf had the chromosomes labelled with the chr prefix, so I've removed these from the file
+
+####### STEP 2- PROVIDES A "KNOWN SITES" VCF
+
+You don't need to run this, but I did this using the sed command and regex
+
+```{bash}
+sed 's/chr//' Reference/gatkResources/resources_broad_hg38_v0_1000G_omni2.5.hg38.vcf > Reference/gatkResources/resources_broad_hg38_v0_1000G_omni2.5.hg38.noCHR.vcf
+```
+
+###### THIS FILE CONTAINS TRUSTED SNPs (from 1000 GENOMES PROJECT)
+###### GATK USES IT TO FIND PLACES WHERE GENUINE BIOLOGICAL VARIATION EXISTS - SO THAT THOSE POSITIONS ARENT TREATED AS SEQUENCING ERRORS WHEN RECALLIBRATING.
+###### THE noCHR PART JUST MEANS THE CHROMOSOME NAMES MATCH YOUR FASTA (EG 17 INSTEAD OF chr17)
+
+You'll see this hasn't created a new bam file yet, as we still need to apply the model. We do this with the ApplyBQSR tool.
+
+####### STEP 3 - BULD THE RECALIBRATIION MODEL
+
+```{bash}
+gatk --java-options "-Xmx1G" ApplyBQSR \
+        -R Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa \
+        -I Alignment/FL75820.bam \
+        --bqsr-recal-file Alignment/FL75820.table \
+        -O Alignment/FL75820.recalib.bam
+```
+
+This creates a new recalibrated bam file that is now ready for variant calling.
+
+##### GATK SCANS EVERY BASE IN YOUR BAM FILE
+####### IT COMPARES THE REPORTED BASE QUALITY VS THE OBSERVED ERROR RATE (BASED ON MISMATCHES THAT ARENT IN KNOWN VARIANT SITES)
+####### IT MODELS THESE DISCREPANCIES AS FUNCTIONS OF: READ CYCLE (BASE POSITION IN READ), SEQUENCE CONTEXT (EG. BASES BEFORE/AFTER), IT OUTPUTS A TABLE (FL7582.table) DESCRIBING THOSE BIAS PATTERNS.
+THIS IS YOUR RECALIBRATION MODEL.
+
+######### STEP 4 - APPLY THE RECALIBRATION
+
+###### HERE, GATK TAKES:
+- THE ORIGINAL BAM (Alignment/FL75820.bam),
+- THE LEARNED MODEL (FL7582.table),
+- AND REASSIGNS NEW BASE QUALITY SCORES TO EVERY BASE, PRODUCING Alignment/FL75820.recalib.bam 
+
+EACH BASE NOW HAS A MORE ACCURATE ESTIMATE OF ITS PROBABILITY OF BEING CORRECT.
+
+######## END RESULT:
+- YOU NOW HAVE:
+Alignment/
+  FL75820.bam             ← raw aligned reads
+  FL75820.marked.bam      ← duplicates flagged
+  FL75820.recalib.bam     ← recalibrated base qualities
+  FL75820.table           ← recalibration model
+
+######### WHY IT MATTERS
+
+Variant callers (like GATK HaplotypeCaller or bcftools call) weight evidence based on base quality.
+
+If base qualities are over- or under-estimated, you’ll get false positives or missed variants.
+
+After BQSR, the base quality scores better reflect real sequencing error probabilities — improving variant accuracy and confidence scores (QUAL, GQ).
+
+####### IN SHORT
+
+BQSR re-learns and corrects the confidence scores assigned to each DNA base by the sequencer — using known variant databases as a “truth set.”
+You’ve now produced a high-quality, calibrated BAM ready for accurate variant calling.
