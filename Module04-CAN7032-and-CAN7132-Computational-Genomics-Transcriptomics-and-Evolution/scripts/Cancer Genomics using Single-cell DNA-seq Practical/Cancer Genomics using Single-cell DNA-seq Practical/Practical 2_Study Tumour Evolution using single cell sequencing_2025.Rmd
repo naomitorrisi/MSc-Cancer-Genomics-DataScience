@@ -1,0 +1,157 @@
+---
+
+markdown set-up
+
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval=FALSE)
+```
+
+```{r set CRAN}
+options(repos = c(CRAN = "https://cran.r-project.org"))
+```
+
+Install the packages and dependencies
+
+```{r Install the packages and dependencies}
+if (!require("BiocManager", quietly = TRUE))
+install.packages("BiocManager")
+install.packages ("gplots")
+install.packages("Rcpp")
+install.packages("https://cran.r-project.org/src/contrib/Archive/ReorderCluste/ReorderCluster_2.0.tar.gz", repos=NULL, type="source")
+
+
+BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
+BiocManager::install("AneuFinder")
+
+setwd('/data/home/<qmulID>/AneuFinder')
+```
+
+Load packages and running AneuFinder
+
+```{r Load packages and running AneuFinder}
+
+library(AneuFinder)
+library(BSgenome.Hsapiens.UCSC.hg38)
+
+Aneufinder(inputfolder = ("Kuramochi_E10/"), outputfolder = ("Kuramochi_E10/Aneufinder/"), assembly = 'hg38',
+           numCPU = 2, binsizes = 1e6,
+           blacklist = ("hg38-blacklist.v2.bed"), correction.method = 'GC',
+           GC.BSgenome = BSgenome.Hsapiens.UCSC.hg38, refine.breakpoints=FALSE,
+           method = 'edivisive', chromosomes = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19","20", "21", "22", "X"))
+
+
+```
+
+Take a look at a Scatter plot for single cells
+
+```{r Take a look at a Scatter plot for single cells}
+
+files=list.files('Kuramochi_E10/Aneufinder/MODELS/method-edivisive/', full.names=TRUE)
+models = loadFromFiles(files)
+plot(files[2], type='profile')
+
+
+```
+
+
+```{r function to open CNV bedfiles, include=FALSE}
+
+load_scdnaseq_dataset <- function(filepath) {
+  # Initialize a list to store CNA segment records
+  cna_segment_records <- list()
+  
+  # Regular expression to gather cell_id (no named capture groups in R's regex)
+  cell_id_pattern <- "\\s(\\w+)\\.bam"
+  
+  # Read the file line by line
+  lines <- readLines(filepath)
+  
+  # Initialize cell_id variable
+  cell_id <- NA
+  
+  for (line in lines) {
+    # Check if line has cell metadata
+    if (startsWith(line, "track")) {
+      # Extract the cell_id using the regular expression
+      match <- regexpr(cell_id_pattern, line, perl = TRUE)
+      if (match > 0) {
+        # Extract the matched cell_id
+        cell_id <- regmatches(line, regexpr(cell_id_pattern, line, perl = TRUE))
+        # Remove leading space and ".bam"
+        cell_id <- gsub("^\\s|\\.bam$", "", cell_id)
+      }
+    } 
+    
+    # Check if the line corresponds to a CNA segment
+    else if (startsWith(line, "chr")) {
+      # Split the line into values
+      line_values <- unlist(strsplit(line, "\t"))
+      
+      # Extract values from the line
+      chrom <- line_values[1]
+      start <- as.integer(line_values[2])
+      end <- as.integer(line_values[3])
+      copy_number <- as.integer(gsub("-somy", "", line_values[4]))
+      
+      # Convert RGB values to hex color
+      rgb_values <- as.integer(unlist(strsplit(line_values[9], ",")))
+      color <- sprintf("#%02x%02x%02x", rgb_values[1], rgb_values[2], rgb_values[3])
+      
+      # Append the CNA segment record to the list
+      cna_segment_records <- append(cna_segment_records, list(data.frame(
+        cell_id = cell_id,
+        chrom = chrom,
+        start = start,
+        end = end,
+        copy_number = copy_number,
+        color = color,
+        stringsAsFactors = FALSE
+      )))
+    }
+  }
+  
+  # Combine the list of data frames into a single data frame
+  cna_segments_df <- do.call(rbind, cna_segment_records)
+  
+  return(cna_segments_df)
+}
+```
+
+Load up r utilities so we can unzip the bed file from AneuFinder
+
+```{r load up r utilities so we can unzip the bed file from AneuFinder}
+
+library(R.utils)
+gz_file <- ""
+gunzip(gz_file, remove = FALSE) # Set remove = TRUE to delete the .gz file after unzipping
+```
+
+Call the function with your file path
+
+```{r Call the function with your file path}
+
+filepath <- "Kuramochi_E10/Aneufinder/BROWSERFILES/method-edivisive/binsize_5e+05_stepsize_5e+05_CNV.bed.gz"
+cna_segments <- load_scdnaseq_dataset(filepath)
+
+# View the first few rows
+head(cna_segments)
+```
+
+Wait until after fixing Medicc2
+
+Loading Medicc output for making plots
+```{r Loading Medicc output for making plots}
+medicc_segments = read.table('mcs_Kuramochi_E10_1000kb_final_cn_profiles.tsv', header = T)
+head(medicc_segments)
+medicc_branch_lengths = read.table('mcs_Kuramochi_E10_1000kb_branch_lengths.tsv')
+
+head(medicc_branch_lengths)
+
+# remove the inferred internals
+medicc_branch_lengths = medicc_branch_lengths[-grep("internal", medicc_branch_lengths$V1), ]
+head(medicc_branch_lengths)
+
+```
+
+

@@ -1,0 +1,650 @@
+---
+title: "NAOMI_TORRISI_CHIP_SEQ_OMICS"
+author: "Naomi Torrisi"
+date: "2025-12-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# -------------------- part 1 of ChIP-seq assignment:
+
+# 3.	ChIP-seq analysis (19 points)
+
+In the HPC “/data/teaching/bci_teaching/assignment/ChIPseq”, you will see a fastq file “CAPAN1_H3K9me3_chr12.fq”
+
+# 1)	Align the fastq file (H3K9me3 ChIP-seq data of CAPAN1 cell line from chromosome 12) to the reference chromosome 12 using the reference provided in the ChIP-seq practical, in “/data/teaching/bci_teaching/reference_data/” using BOWTIE2.
+
+### Access HPC 
+
+```{bash eval=FALSE}
+ssh -i ~/.ssh/id_ed25519 ha25679@login.hpc.qmul.ac.uk
+## enter passphrase and password
+```
+
+### make a ChIP-Seq folder in working directory on HPC
+
+```{bash eval=FALSE}
+pwd ## Make sure you are in your working directory
+mkdir ChIP-seq2 ## Create a new directory
+cd ChIP-seq2 ## goes into that directory (ChIP-seq2)
+```
+
+### Copy fastq files from shared resource directory into working directory
+### Copy input control BAM file from shared teaching directory into working directory for downstream peak calling
+
+```{bash eval=FALSE}
+cp /data/teaching/bci_teaching/assignment/ChIPseq/CAPAN1_H3K9me3_chr12.fq ./
+cp /data/teaching/bci_teaching/assignment/ChIPseq/CAPAN1_input_chr12.rmdup.bam ./
+```
+
+### check you have fastq file in ChIP-Seq folder
+
+```{bash eval=FALSE}
+ls ## list contents of directory , should see CAPAN1_H3K9me3_chr12.fq and CAPAN1_input_chr12.rmdup.bam
+```
+
+### load Bowtie2
+
+```{bash eval=FALSE}
+module load bowtie2
+```
+
+### run Bowtie2 alignment
+
+```{bash eval=FALSE}
+bowtie2 -p 4 -q --local \
+  -x /data/teaching/bci_teaching/reference_data/chr12_hg38_bowtie2 \
+  -U CAPAN1_H3K9me3_chr12.fq \
+  -S CAPAN1_H3K9me3_chr12.sam
+```
+
+### visualise
+
+```{bash eval=FALSE}
+head CAPAN1_H3K9me3_chr12.sam ## Check job is running
+```
+
+H3K9me3 ChIP-seq reads were aligned to the chromosome 12 reference using Bowtie2, generating a SAM file that was inspected to confirm successful alignment.
+
+# 2)	Convert SAM to BAM, sort the BAM, remove PCR duplicates, ready for peak calling.
+
+### load samtools
+
+```{bash eval=FALSE}
+module load samtools
+```
+
+### convert sam to bam file
+
+```{bash eval=FALSE}
+samtools view -S -b CAPAN1_H3K9me3_chr12.sam > CAPAN1_H3K9me3_chr12.bam
+```
+
+### Next, sort these alignments with regard to their position in the reference genome
+
+```{bash eval=FALSE}
+samtools sort CAPAN1_H3K9me3_chr12.bam -o CAPAN1_H3K9me3_chr12.sorted.bam
+```
+
+### Remove PCR duplicates
+
+```{bash eval=FALSE}
+samtools rmdup -s CAPAN1_H3K9me3_chr12.sorted.bam CAPAN1_H3K9me3_chr12.rmdup.bam
+```
+
+### You can further look at the basic alignment stats using ‘samtools flagstat’
+
+```{bash eval=FALSE}
+samtools flagstat CAPAN1_H3K9me3_chr12.rmdup.bam
+```
+
+The aligned reads were converted to BAM format, sorted, deduplicated, and quality-checked, producing a final BAM file ready for peak calling.
+
+# 3)	Call H3K9me3 ChIP peaks using MACS2 using the provided “CAPAN1_input_chr12.rmdup.bam” in “/data/teaching/bci_teaching/assignment/ChIPseq” as the input control (Note: use the broad peak calling mode)
+
+### Install MACS2 using miniforge into a new mamba environment and activate it
+
+```{bash eval=FALSE}
+## Due to conflicts, unload python/3.11.7-gcc-12.2.0
+module unload python/3.11.7-gcc-12.2.0
+## Then load miniforge
+module load miniforge
+mamba create -n macs2_test python=3.10 macs2=2.2.7.1 -c bioconda
+## Confirm changes: [Y/n] y
+mamba activate macs2_test ## Activate macs2_test
+```
+
+### Make an output folder called macs2 using ‘mkdir’ in your “~/ChIP-seq/” folder
+
+```{bash eval=FALSE}
+cd ~/ChIP-seq2
+pwd ## ensure you are in ChIP-seq2 folder
+mkdir macs2 ## create macs2 folder within ChIP-seq2 folder
+ls ## You should have a new folder called ‘macs2’ now in your current directory.
+```
+
+### Call peaks using MACS2. Make sure you run the following command in the “~/ChIP-seq2/” you created.
+
+```{bash eval=FALSE}
+macs2 callpeak -t CAPAN1_H3K9me3_chr12.rmdup.bam -c CAPAN1_input_chr12.rmdup.bam -f BAM -g 1.3e+8 -B -n CAPAN1_H3K9me3_chr12 --broad --outdir macs2 2>macs2/CAPAN1_H3K9me3_chr12.log &
+## -g 1.3e+8’ is for this example only, size of chromosome 12. For the human whole genome, it should be ’-g 3.0e+9
+## The specification ‘-B’ here is to ask MACS2 to generate bedGraph files that can be loaded into genome browsers, such as IGVtools, to inspect the ChIP-seq signals.
+
+ls macs2 ## Check it is done and have files outputted
+```
+
+### Once you finish with MACS2, it is good to deactivate the conda environment
+
+```{bash eval=FALSE}
+mamba deactivate
+ls macs2/ ## check file types align with tutorial
+```
+
+MACS2 was used in broad peak mode to identify H3K9me3-enriched regions using the corresponding input control.
+
+# 4)	Further filter the peaks using a q value cutoff of “q < 1E-5” (Note: cutoff of -log10(q) would be 5)
+
+### Download the peak calling files from HPC to your local machine and folder
+In your own computer, open a terminal. And go to a folder you’d like to work in. I will work in my downloads folder.
+
+```{bash eval=FALSE}
+## Open up home terminal and download files to down home directory
+scp ha25679@login.hpc.qmul.ac.uk:'/data/home/ha25679/ChIP-seq2/macs2/CAPAN1_H3K9me3_chr12_*' ~/Downloads/ ## move into pre-made ChIP-seq folder manually
+```
+
+### visualise in R studio
+
+```{r}
+setwd("/Users/naomi/Downloads/Omics Coursework/ChIP-seq")
+getwd()
+## Read broakpeak file into R studio
+peak_H3K9me3 <- read.delim("CAPAN1_H3K9me3_chr12_peaks.broadPeak", header = FALSE)
+head(peak_H3K9me3)
+dim(peak_H3K9me3)
+head(peak_H3K9me3)
+
+```
+
+
+### Now filter the peaks using a q value cutoff of "q < 1E-5"
+
+```{r}
+peak_H3K9me3_filter <- peak_H3K9me3[which(peak_H3K9me3$V9 > 5),]
+dim(peak_H3K9me3_filter)
+head(peak_H3K9me3_filter)
+```
+
+
+After the q value filtering, the number of peaks reduce from 13076 to 958.
+
+```{r}
+## Check V9 has been filtered to >5
+hist(peak_H3K9me3_filter$V9)
+```
+
+
+As shown in the histogram, all retained peaks fall above –log10(q) = 5, demonstrating that the applied threshold effectively excluded low-confidence peaks.
+
+### Save file in downloads/Omics Coursework/Chip-Seq:
+
+```{r}
+peak_H3K9me3_filter <- peak_H3K9me3_filter[-1, ]
+
+write.table(
+  peak_H3K9me3_filter,
+  file = "~/Downloads/Omics Coursework/ChIP-seq/CAPAN1_H3K9me3_chr12_peaks_filtered_noHeader.bed",
+  quote = FALSE,
+  sep = "\t",
+  row.names = FALSE,
+  col.names = FALSE ## Remove V1, V2, V3, etc so it can be read.
+)
+readLines("~/Downloads/Omics Coursework/ChIP-seq/CAPAN1_H3K9me3_chr12_peaks.broadPeak_filtered2.bed", n = 5)
+
+```
+
+
+
+```{r}
+setwd("~/Downloads/Omics Coursework/ChIP-seq")
+
+### Read the BED file (it currently contains a header row)
+bed <- read.delim(
+  "CAPAN1_H3K9me3_chr12_peaks_filtered_noHeader.bed",
+  header = TRUE
+)
+
+### Remove the FIRST ROW (the unwanted V1 V2 V3… header)
+bed <- bed[-1, ]
+
+head(bed)
+
+### Save a headerless BED file for IGV as txt file
+write.table(
+  bed,
+  file = "CAPAN1_H3K9me3_chr12_peaks_filtered_noHeader_FIXED.txt",
+  sep = "\t",
+  quote = FALSE,
+  row.names = FALSE,
+  col.names = FALSE
+)
+
+### Verify the file (first 5 lines should start with chr12… no header!)
+readLines("CAPAN1_H3K9me3_chr12_peaks_filtered_noHeader_FIXED.txt", n = 5)
+
+```
+
+
+Applying a stringent q-value cutoff (q < 1×10^-5) substantially reduced the number of H3K9me3 peaks, leaving a smaller set of high-confidence regions. These filtered peaks were exported as a header-free BED file, ready for visualisation and further analysis in IGV.
+
+# --------------------- part 2 of ChIP seq assignment:
+Under the coursework assignment tab of the module page within the “Data needed for the assignment” folder, you will see four “CAPAN1_peaks” bed files, all coordinates were based on hg19. 
+
+“GSM1919987_CFPAC1.wtKLF5_FOXA1_vs_INPUT.CAPAN1_peaks.bed”: the anti-FOXA1 ChIP-seq peak file of the wildtype KLF5 CFPAC1 cell line, Control.FOXA1
+“GSM1919985_CFPAC1.crKLF5_FOXA1_vs_INPUT.CAPAN1_peaks.bed”: the anti-FOXA1 ChIP-seq peak file of the KLF5 knockout CFPAC1 cell line, KLF5-KO.FOXA1
+
+“GSM1919986_CFPAC1.wtKLF5.ELF3_vs_INPUT.CAPAN1_peaks.bed”: the anti-ELF3 ChIP-seq peak file of the wildtype KLF5 CFPAC1 cell line, Control.ELF3
+“GSM1919984_CFPAC1.crKLF5.ELF3_vs_INPUT.CAPAN1_peaks.bed”: the anti-ELF3 ChIP-seq peak file of the KLF5 knockout CFPAC1 cell line, KLF5-KO.ELF3
+
+# 1)	Use ChIPseeker to annotate all the peak files following the practical, including various plots regarding the relation to TSS, gene body, genomic annotation (e.g., Promoter, 5’ UTR, 3’ UTR, Exon, Intron, Downstream, Intergenic). Report all the code used for the analysis and important relevant annotate figures (6 points)
+
+### Use Bioconductor biocManager to install and load required R packages
+
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+install.packages("BiocManager")
+BiocManager::install("ChIPseeker")
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("TxDb.Hsapiens.UCSC.hg19.knownGene")
+
+library(ChIPseeker)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+setwd("/Users/naomi/Downloads/Omics Coursework")
+```
+
+
+Once packages are successfully downloaded, we are ready to run ChIP seeker.
+
+### Load bed files into r 
+
+To begin the ChIPseeker analysis, I first set the working directory to the location of my ChIP-seq peak files. I then loaded the four BED files corresponding to FOXA1 and ELF3 in control and KLF5-knockout CFPAC1 cells. Each peak file was read into R as a separate peak object, allowing them to be analysed and compared individually in later steps. These peak objects provide the required input for downstream analyses, including TSS proximity, gene body profiles, and genomic feature annotation.
+
+```{r}
+setwd("/Users/naomi/Downloads/Omics Coursework/ChIP-seq")
+
+files <- list(
+  "GSM1919987_CFPAC1.wtKLF5_FOXA1_vs_INPUT.CAPAN1_peaks.bed",
+  "GSM1919985_CFPAC1.crKLF5_FOXA1_vs_INPUT.CAPAN1_peaks.bed",
+  "GSM1919986_CFPAC1.wtKLF5.ELF3_vs_INPUT.CAPAN1_peaks.bed",
+  "GSM1919984_CFPAC1.crKLF5.ELF3_vs_INPUT.CAPAN1_peaks.bed"
+)
+peak_FOXA1_87 <- readPeakFile(files[[1]], header=F)
+peak_FOXA1_87
+peak_FOXA1_85 <- readPeakFile(files[[2]], header=F)
+peak_FOXA1_85
+peak_ELF3_86 <- readPeakFile(files[[3]], header=F)
+peak_ELF3_86
+peak_ELF3_84 <- readPeakFile(files[[4]], header=F)
+peak_ELF3_84
+```
+
+ The output shows that the ChIP-seq peak files were successfully loaded into R, with each row representing a genomic peak. These peaks are then used as the input for the downstream ChIPseeker analysis.
+ 
+### Create 4 chromosome plots to display the ChIP peaks over their chromosomes
+
+I created chromosome plots to show where the ChIP-seq peaks are located along the chromosomes. I focused on chromosome 14 for FOXA1 and chromosome 1 for ELF3 as these are the chromosomes they originate respectively. These plots give a simple visual summary of peak distribution along each chromosome.
+
+```{r}
+p1 <- covplot(peak_FOXA1_87, weightCol = "V5", chrs = "chr14") +
+  labs(
+    title = "FOXA1 ChIP-seq peaks",
+    subtitle = "Sample 87 – Chromosome 14",
+    x = "Genomic position (bp)",
+    y = "Peak coverage"
+  )
+
+p1
+
+p2 <- covplot(peak_FOXA1_85, weightCol = "V5", chrs = "chr14") +
+  labs(
+    title = "FOXA1 ChIP-seq peaks",
+    subtitle = "Sample 85 – Chromosome 14",
+    x = "Genomic position (bp)",
+    y = "Peak coverage"
+  )
+
+p2
+
+p3 <- covplot(peak_ELF3_86, weightCol = "V5", chrs = "chr1") +
+  labs(
+    title = "ELF3 ChIP-seq peaks",
+    subtitle = "Sample 86 – Chromosome 1",
+    x = "Genomic position (bp)",
+    y = "Peak coverage"
+  )
+
+p3
+
+p4 <- covplot(peak_ELF3_84, weightCol = "V5", chrs = "chr1") +
+  labs(
+    title = "ELF3 ChIP-seq peaks",
+    subtitle = "Sample 84 – Chromosome 1",
+    x = "Genomic position (bp)",
+    y = "Peak coverage"
+  )
+
+p4
+
+```
+
+
+
+### Profile of ChIP peaks binding to transcription starting site (TSS) regions
+
+I used ChIPseeker to look at where FOXA1 and ELF3 bind around transcription start sites (TSS). I plotted the average ChIP-seq signal within ±3 kb of the TSS for control and KLF5-knockout cells to see how binding changes near promoters. I am using human genome 19 (txdb19) so ChIPseeker knows where genes and TSS are.
+
+First I laoded the relevant packages used to do the analysis and the reference huamn genome 19. 
+
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("TxDb.Hsapiens.UCSC.hg19.knownGene") ## gene annotation database for the human hg19 genome
+
+## install clusterProfiler package as below if you don’t have it in your computer
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("clusterProfiler")
+library(clusterProfiler)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+txdb19 <- TxDb.Hsapiens.UCSC.hg19.knownGene ## use human hg19 genome as reference genome
+```
+
+I first set up regions around the TSS (+/-3 kb). I then mapped the ChIP-seq peaks to these regions and plotted the average signal to see how FOXA1 and ELF3 bind near promoters in each condition. 
+
+```{r}
+## first prepare the TSS regions
+## expand the region to upstream 3000bp and downstream 3000bp
+
+## Define promoter / TSS window
+library(ChIPseeker) ## Provides functions for peak annotation + TSS/gene body profiling
+promoter <- getPromoters(TxDb = txdb19, upstream = 3000, downstream = 3000) ## 3kb upstream of the TSS and 3kb downstream of TSS
+
+## Extract tag matrix from your peak file
+## Convert peaks in to a "tag matrix" which maps the peaks across the promoter region
+## Produces matrix that summarises coverage at each position relative to the TSS
+tagMatrix1 <- getTagMatrix(peak_FOXA1_87, windows = promoter) ## FOXA1 control
+tagMatrix2 <- getTagMatrix(peak_FOXA1_85, windows = promoter) ## FOXA1 KLF5-KO
+tagMatrix3 <- getTagMatrix(peak_ELF3_86, windows = promoter) ## ELF3 control
+tagMatrix4 <- getTagMatrix(peak_ELF3_84, windows = promoter) ## ELF3 KLF5-KO
+
+## Plot average binding profile around TSS
+## plotAvgProf takes tag matrix and plots read count frequency at each region -3kb to + 3kb around TSS.
+plotAvgProf(
+  tagMatrix1,
+  xlim = c(-3000, 3000), ## 3kb downstream - 3kb upstream of TSS
+  xlab = "Genomic Region (5'->3')", ## x axis labels
+  ylab = "Read Count Frequency") + ## y axis labels 
+  ggtitle("FOXA1 binding around TSS (Control)")
+
+
+plotAvgProf(
+  tagMatrix2,
+  xlim = c(-3000, 3000),
+  xlab = "Genomic Region (5'->3')",
+  ylab = "Read Count Frequency") +
+  ggtitle("FOXA1 binding around TSS (KLF5-KO)")
+
+plotAvgProf(
+  tagMatrix3,
+  xlim = c(-3000, 3000),
+  xlab = "Genomic Region (5'->3')",
+  ylab = "Read Count Frequency") +
+  ggtitle("ELF3 binding around TSS (Control)")
+
+plotAvgProf(
+  tagMatrix4,
+  xlim = c(-3000, 3000),
+  xlab = "Genomic Region (5'->3')",
+  ylab = "Read Count Frequency") +
+  ggtitle("ELF3 binding around TSS (KLF5-KO)")
+```
+
+
+### Profile of ChIP peaks binding to body regions
+
+I also looked at how FOXA1 and ELF3 bind across entire genes, not just promoters. I plotted their binding from the start to the end of genes to see overall patterns in control and KLF5-knockout cells.
+
+```{r}
+##Here uses 'plotPeakProf2' to do all things in one step.
+##Binning method for profile of ChIP peaks
+## the ignore_strand is FALSE in default. We put here to emphasize that.
+
+plotPeakProf2(peak = files, upstream = rel(0.2), downstream = rel(0.2),
+              conf = 0.95, by = "gene", type = "body", nbin = 200,
+              TxDb = txdb19, weightCol = "V5",ignore_strand = F)
+
+```
+
+
+# Genomic annotation
+
+I used ChIPseeker to label each ChIP-seq peak by where it falls in the genome, such as promoters or gene bodies. I then made simple plots to show where most peaks are located.
+ 
+```{r}
+## Since some annotation may overlap, ChIPseeker adopted the following priority in genomic annotation: Promoter, 5’ UTR, 3’ UTR, Exon, Intron, Downstream, Intergenic
+
+## install Bioconductor R package ("org.Hs.eg.db")
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("org.Hs.eg.db")
+
+library(org.Hs.eg.db)
+
+peakAnno_FOXA1_87 <- annotatePeak(
+  peak_FOXA1_87,
+  tssRegion = c(-3000, 3000),
+  TxDb      = txdb19,
+  annoDb    = "org.Hs.eg.db"
+)
+peakAnno_FOXA1_87
+peakAnno_FOXA1_85 <- annotatePeak(
+  peak_FOXA1_85,
+  tssRegion = c(-3000, 3000),
+  TxDb      = txdb19,
+  annoDb    = "org.Hs.eg.db"
+)
+peakAnno_FOXA1_85
+peakAnno_ELF3_86 <- annotatePeak(
+  peak_ELF3_86,
+  tssRegion = c(-3000, 3000),
+  TxDb      = txdb19,
+  annoDb    = "org.Hs.eg.db"
+)
+peakAnno_ELF3_86
+peakAnno_ELF3_84 <- annotatePeak(
+  peak_ELF3_84,
+  tssRegion = c(-3000, 3000),
+  TxDb      = txdb19,
+  annoDb    = "org.Hs.eg.db"
+)
+peakAnno_ELF3_84
+```
+
+These tables summarise where the ChIP-seq peaks are located in the genome by showing the proportion of peaks assigned to each annotated genomic feature. They provide a straightforward snapshot of peak distribution across promoters, UTRs, exons, introns, downstream, and intergenic regions.
+
+I used pie charts to show where the ChIP-seq peaks are located in the genome. Each chart summarises the main regions where peaks occur for each dataset.
+
+```{r}
+## Plot pie charts
+plotAnnoPie(peakAnno_FOXA1_87)
+plotAnnoPie(peakAnno_FOXA1_85)
+plotAnnoPie(peakAnno_ELF3_86)
+plotAnnoPie(peakAnno_ELF3_84)
+```
+
+
+I applied this same concept in bar plots to show where the ChIP-seq peaks fall in the genome, giving a breakdown of peak locations across the datasets. 
+
+```{r}
+## plot bar charts 
+plotAnnoBar(peakAnno_FOXA1_87)
+plotAnnoBar(peakAnno_FOXA1_85)
+plotAnnoBar(peakAnno_ELF3_86)
+plotAnnoBar(peakAnno_ELF3_84)
+
+```
+
+
+I used plotDistToTSS to check how close the ChIP-seq peaks are to transcription start sites (TSS). This shows whether FOXA1 and ELF3 bind near genes or further away.
+
+```{r}
+## plotDistToTSS to calculate the percentage of binding sites upstream and downstream from the TSS of the nearest genes, and visualize the distribution.
+plotDistToTSS(
+  peakAnno_FOXA1_87,
+  title = "Control FOXA1: Distribution of transcription factor-binding loci\n relative to TSS"
+)
+plotDistToTSS(
+  peakAnno_FOXA1_85,
+  title = "KLF5-KO FOXA1: Distribution of transcription factor-binding loci\n relative to TSS"
+)
+
+plotDistToTSS(
+  peakAnno_ELF3_86,
+  title = "Control ELF3: Distribution of transcription factor-binding loci\n relative to TSS"
+)
+
+plotDistToTSS(
+  peakAnno_ELF3_84,
+  title = "KLF5-KO ELF3: Distribution of transcription factor-binding loci\n relative to TSS"
+)
+
+```
+
+
+
+# 2)	Importantly, compare the paired samples, e.g., KLF5-KO.FOXA1 vs. Control.FOXA1; KLF5-KO.ELF3 vs. Control.ELF3, can you observe significant changes of FOXA1 and ELF3 binding, following the knockout of KLF5, respectively? Comment on these with the supporting evidence (2 points). And can you see any difference between the FOXA1 and ELF3 binding after the KLF5 knockout? (2 points)
+
+```{r}
+## Create paired comparison groups
+pair_FOXA1 <- list(
+  "Control_FOXA1 (wtKLF5)" = peak_FOXA1_87,
+  "KLF5KO_FOXA1 (crKLF5)"  = peak_FOXA1_85
+)
+
+pair_ELF3 <- list(
+  "Control_ELF3 (wtKLF5)" = peak_ELF3_86,
+  "KLF5KO_ELF3 (crKLF5)"  = peak_ELF3_84
+)
+
+```
+
+
+### TSS binding profile to show WHETHER binding changes
+-why TSS binding plot was used: TSS binding profiles were used to assess whether FOXA1 and ELF3 binding changes following KLF5 knockout by comparing control and knockout samples directly. This plot shows the average ChIP-seq signal intensity around transcription start sites, which are key regulatory regions where transcription factors often exert their function. By overlaying control and KLF5-KO profiles, it is possible to determine whether knockout leads to a global increase or decrease in promoter-proximal binding. This makes the TSS binding profile the most direct way to evaluate changes in transcription factor binding strength after KLF5 knockout.
+
+- 1) FOXA1 paired comparison
+```{r}
+promoter <- getPromoters(TxDb=txdb, upstream=3000, downstream=3000)
+
+tag_FOXA1 <- lapply(pair_FOXA1, getTagMatrix, windows=promoter)
+plotAvgProf(tag_FOXA1, xlim=c(-3000, 3000), title="FOXA1: Control vs KLF5-KO")
+```
+
+- Interpretation: FOXA1 binding clearly drops after KLF5 knockout, with approximately 10% reduced signal around transcription start sites compared to the control condition, thus hinting at weakened promoter-associated FOXA1 binding.
+
+- 2) ELF3 paired comparison
+- Plot to insert: TSS binding profile (plotAvgProf) for Control.ELF3 vs KLF5-KO.ELF3
+```{r}
+tag_ELF3 <- lapply(pair_ELF3, getTagMatrix, windows=promoter)
+plotAvgProf(tag_ELF3, xlim=c(-3000, 3000), title="ELF3: Control vs KLF5-KO")
+```
+
+- Interpretation: In contrast to FOXA1, ELF3 binding does not show a clear change following KLF5 knockout. The binding profiles around transcription start sites are very similar between control and knockout conditions, with a modest change of approximately 5%, suggesting that ELF3 promoter binding is relatively unaffected by loss of KLF5.
+
+### Dist-to-TSS comparison (plotDistToTSS) to show WHERE binding changes
+-why plotDistToTSS was used: Distance-to-TSS plots were used to examine whether KLF5 knockout affects the genomic positioning of FOXA1 and ELF3 binding sites. This analysis shows how close binding events are to transcription start sites and whether knockout causes binding to shift toward more distal or intergenic regions. Comparing FOXA1 and ELF3 distance-to-TSS distributions allows assessment of whether the two transcription factors respond differently to KLF5 loss in terms of promoter association. This is important because changes in binding location can indicate altered regulatory roles, even if total binding remains similar. 
+
+- 1) FOXA1 paired comparison
+```{r}
+peakAnnoListFoxA1 <- lapply(
+  pair_FOXA1,
+  annotatePeak,
+  TxDb = txdb,
+  tssRegion = c(-3000, 3000),
+  verbose = FALSE
+)
+plotDistToTSS(peakAnnoListFoxA1)
+```
+
+- Interpretation: Approximately 15–20% of FOXA1 peaks are located within 10–100 kb of the transcription start site, with a further 15–20% positioned more than 100 kb away, indicating that FOXA1 binding is largely distal to the TSS in both control and KLF5-knockout conditions. However, FOXA1 shows a modest reduction in promoter-regional binding following KLF5 knockout, with fewer peaks located within 1 kb of the TSS (~5%) compared to control. This suggests that while the overall genomic distribution of FOXA1 binding sites remains broadly similar, KLF5 knockout weakens FOXA1 association with promoters.
+
+- 2) ELF3 paired comparison
+```{r}
+peakAnnoListELF3 <- lapply(
+  pair_ELF3,
+  annotatePeak,
+  TxDb = txdb,
+  tssRegion = c(-3000, 3000),
+  verbose = FALSE
+)
+plotDistToTSS(peakAnnoListELF3)
+```
+
+- Interpretation: Approximately 20% of peaks lie 10-100kb from TSS and a further 10-15% positioned >100kb from TSS, highlighting ELF3 binding is mostly distal to the TSS in control and KLF5-KO conditions. Only a small proportion of ELF3 bids to the TSS (10% <1kb binding distance from TSS). These remain very similar proportionally between control and KO and KO does not cause a significant change in binding of ELF3 towards or away from promoters.
+
+### Genomic annotation bar plot (plotAnnoBar) to show what types of genomic regions that FOXA1 and ELF3 bind to that changes
+-why plotAnnoBar was used: Genomic annotation bar plots were used to summarise where FOXA1 and ELF3 binding sites are located across different genomic features, such as promoters, introns and intergenic regions. This provides a clear overview of whether KLF5 knockout alters the types of genomic regions bound by each transcription factor. By comparing control and knockout samples, this plot supports conclusions about binding redistribution and complements the TSS-centred analyses by providing genome-wide context.
+
+- 1) FOXA1 paired comparison
+```{r}
+peakAnno_FOXA1 <- lapply(
+  pair_FOXA1,
+  annotatePeak,
+  TxDb = txdb,
+  tssRegion = c(-3000, 3000),
+  verbose = FALSE
+)
+plotAnnoBar(
+  peakAnno_FOXA1,
+  title = "Genomic distribution of FOXA1 binding sites
+  before and after KLF5 knockout"
+)
+```
+
+- Interpretation: Genomic annotation profiles show whether KLF5 knockout changes where FOXA1/ELF3 bind in the genome (e.g., fewer promoter peaks, more distal peaks). A larger redistribution in one TF compared to the other indicates a stronger KLF5-dependent effect.
+
+- 2) ELF3 paired comparison
+```{r}
+## Annotate all peak sets
+peakAnno_ELF3 <- lapply(
+  pair_ELF3,
+  annotatePeak,
+  TxDb = txdb,
+  tssRegion = c(-3000, 3000),
+  verbose = FALSE
+)
+plotAnnoBar(
+  peakAnno_ELF3,
+  title = "Genomic distribution of ELF3 binding sites
+  before and after KLF5 knockout"
+)
+```
+
+- Interpretation: ELF3 binding mostly occurs away from promoter regions in both control and KLF5-knockout cells. Around 50–55% of ELF3 binding sites are found in distal intergenic regions, with a further 30–35% located within introns, while only a relatively small fraction (~15–20%) lie close to promoters (within 3 kb of the TSS). These proportions are very similar between control and KLF5-KO conditions, indicating that KLF5 knockout does not noticeably shift where ELF3 binds in the genome. Overall, this suggests that ELF3 binding patterns are largely unchanged by loss of KLF5.
+
+### Conclusion
+
+Looking at the paired control and KLF5-knockout samples, FOXA1 and ELF3 respond quite differently to the loss of KLF5.
+
+For FOXA1, there is a clear reduction in binding around transcription start sites after KLF5 knockout. The promoter-proximal signal drops by around 10% compared to control, and this is supported by distance-to-TSS and genomic annotation analyses, which show fewer FOXA1 peaks located very close to the TSS following knockout. Although FOXA1 binding remains largely distal in both conditions, this consistent reduction at promoters suggests that FOXA1 depends, at least in part, on KLF5 to maintain strong promoter-associated binding.
+
+In contrast, ELF3 binding shows very little change after KLF5 knockout. The TSS binding profiles for ELF3 are almost identical between control and knockout samples, with only a modest change of around 5%. This stability is also reflected in the distance-to-TSS and genomic annotation plots, where ELF3 binding remains mostly distal, with similar proportions of promoter, intronic and distal intergenic peaks in both conditions. Overall, there is no strong evidence that KLF5 knockout significantly alters ELF3 binding.
+
+Taken together, these paired comparisons show a clear difference between the two transcription factors. Paired comparisons show that FOXA1 binding decreases following KLF5 knockout, whereas ELF3 binding remains largely unchanged. Comparing these responses directly indicates that FOXA1 is more sensitive to KLF5 loss than ELF3.

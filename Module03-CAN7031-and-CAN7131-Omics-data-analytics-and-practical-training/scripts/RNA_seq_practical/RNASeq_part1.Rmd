@@ -1,0 +1,139 @@
+---
+title: "MSc_GCDS_RNASeq_part1"
+output: html_document
+date: '2023-11-12'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Start qlogin session 
+```{bash}
+qlogin -pe smp 4 -l h_vmem=10G -l h_rt=24:0:0
+```
+
+## copy data from teaching directory to scratch 
+```{bash}
+cd /data/scratch/YOUR_ID/
+
+cp –r /data/teaching/bci_teaching/RNASeq .
+
+mkdir myRNASeq
+
+cd myRNASeq
+
+cp –r ../RNASeq/raw_FASTQs/* .
+
+cp –r ../RNASeq/GRCh38.genome/ .
+
+cp –r ../RNASeq/GRCh38.105.rsem.ref/ .
+
+cp –r ../RNASeq/Homo_sapiens.GRCh38.105.gtf .
+
+ls
+```
+
+
+## Take a look into a fastq file
+```{bash}
+zcat Ovcar4_2m_1.fastq.gz | head -n 4
+```
+
+## Perform FASTQC on the raw fastq files
+```{bash}
+module load fastqc
+fastqc Ovcar4_2m_1.fastq.gz 
+```
+
+## Perform quality and adapter trimming
+```{bash}
+module load trimgalore
+mkdir trimmed_FASTQs
+mkdir trimmed_fastQC
+trim_galore --paired --illumina --dont_gzip --fastqc_args "-o trimmed_fastQC" -o trimmed_FASTQs Ovcar4_2m_1.fastq.gz Ovcar4_2m_2.fastq.gz
+
+```
+
+## STAR aignment
+```{bash}
+module load star
+STAR --runThreadN 2 --genomeDir GRCh38.genome --sjdbGTFfile Homo_sapiens.GRCh38.105.gtf --sjdbOverhang 149 --outFilterType BySJout --outFilterMultimapNmax 20 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --readFilesIn trimmed_FASTQs/Ovcar4_2m_1_val_1.fq trimmed_FASTQs/Ovcar4_2m_2_val_2.fq --outSAMtype BAM SortedByCoordinate --quantMode TranscriptomeSAM --outFileNamePrefix Ovcar4_2m_
+
+
+```
+
+## Read counting
+```{bash}
+module load rsem
+rsem-calculate-expression --bam --strandedness reverse --no-bam-output -p 2 --paired-end Ovcar4_2m_Aligned.toTranscriptome.out.bam ./GRCh38.105.rsem.ref/ref Ovcar4_2m_Quant
+
+
+```
+
+## This is an example of how to write an array job so that you perform a task automatically for multiple files
+```{bash}
+### First you need to create a list of all your raw fastq files , you could do it like this
+cd FASTQs
+ls *.fastq.gz > all_raw_fastqs_list # you need to adjust this if your files don't end in .fastq.gz
+
+### Then you need to write up an array job for apocrita into a .sh file
+emacs fastqc_array.sh # this opens the macs editor window where you can write your code and then save it as a .sh file
+
+###Below here is what you need to type into your emacs file
+
+#!/bin/sh
+#$ -cwd
+#$ -pe smp 1  # Request ncpu CPU cores
+#$ -l h_rt=200:0:0
+#$ -l h_vmem=23G
+#$ -t 1-10
+#$ -tc 5
+
+module load fastqc
+
+fastq_dir=/data/RNASeq_exp/FASTQs
+results_dir=/data/RNASeq_exp/results/
+
+mkdir -p ${results_dir}/fastQC
+
+fastq=$(sed -n "${SGE_TASK_ID}p" ./all_raw_fastqs_list)
+fastqc ${fastq_dir}/${fastq} -o ${results_dir}/fastQC
+
+###To exit the emacs mode, save the file and go back into bash you need to press CTRL-X and CTRL-C
+###To submit the job 
+qsub fastqc_array.sh
+
+
+### Read more about array jobs in apocrita here https://docs.hpc.qmul.ac.uk/using/arrays/
+```
+
+## This is data wrangling to bind the expected_counts of all samples of an RNASeq experiment into one matrix
+```{r}
+dirlist <- dir("~/RNASeq/rsem_counts/") # Navigate into the rsem_counts directory
+cntlist <- dirlist[grep("genes.results", dirlist)] # "catch" directories of all the files that contain "gene.results" in the file name
+
+# Here we are writing a loop to read all the rsem-count files from all samples
+for ( i in 1:length(cntlist) ) {
+  cntfile <- paste("~/RNASeq/rsem_counts/", cntlist[i], sep="")
+  tmp <- read.delim(cntfile, header=T)
+  assign(paste("cnt", i, sep=""), tmp)
+}
+
+toc <- data.frame(cnt1$expected_count) #here we start a data frame from the first counts file, using the expected_counts column of values
+
+#Then we write a for loop to append the expected_counts column of the rest of the files into the toc dataframe
+for ( i in 2:length(cntlist) ) {
+  ctmp <- get(paste("cnt", i, sep=""))
+  toc <- cbind(toc, ctmp$expected_count)
+}
+samplename <- gsub( "_Quant.genes.results", "", cntlist) #Here we fix the sample names 
+
+colnames(toc) <-samplename
+soc <- toc
+rownames(soc) <- cnt1$gene_id #Here we add the gene_ids to the dataframe
+
+write.table(soc, "~/RNASeq/rsem_counts/rsem_counts_allsamples.txt", sep="\t", quote = F, row.names = T) # we write it into a text file
+
+```
+

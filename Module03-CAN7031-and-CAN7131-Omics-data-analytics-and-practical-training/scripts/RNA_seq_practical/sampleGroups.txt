@@ -1,0 +1,7 @@
+sample.name	group
+Ovcar4_sens_1	chemo_sensitive
+Ovcar4_sens_2	chemo_sensitive
+Ovcar4_sens_3	chemo_sensitive
+Ovcar4_res_1	chemo_resistant
+Ovcar4_res_2	chemo_resistant
+Ovcar4_res_3	chemo_resistant

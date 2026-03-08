@@ -1,0 +1,782 @@
+---
+title: "NAOMI_TORRISI_DNA_SEQ_OMICS_CW"
+author: "Naomi Torrisi"
+date: "2025-12-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# 1. DNA-Seq Analysis.
+There are two sets of paired end sequencing FASTQ files (gzip compressed) in the HPC “/data/teaching/bci_teaching/assignment/DNAseq”. One is for tumour, tumour_R1.fq.gz and tumour_R2.fq.gz. One is for matched normal control, germline_R1.fq.gz and germline_R2.fq.gz
+
+
+# 1)	Align the FASTQ files to chromosome 17 using BOWTIE2, using the existing BOWTIE2 chromosome 17 reference index files, in “/data/teaching/bci_teaching/DNAseq/Reference/Bowtie2Idx/”, so that you generate one alignment file for tumour and one alignment file for germline normal control.
+
+## Setup
+
+### Logging into Apocrita
+
+An interactive compute session was started using qlogin to run alignment and variant calling on a worker node.
+
+```{bash eval=FALSE}
+ssh -i ~/.ssh/id_ed25519 ha25679@login.hpc.qmul.ac.uk
+```
+
+### Creating a working directory for the DNA-seq assignment
+
+Once online I want to create a folder to work in. I can do this using the code below:
+
+```{bash eval=FALSE}
+mkdir DNA_assignment3
+cd DNA_assignment3
+```
+
+### Start an interactive session on Apocrita
+
+The HPC is made up of several "nodes", most of these are set up to run all our scripts and do the heavy lifting.
+
+*HOWEVER*, the node you start on after logging in is *NOT* suitable for running resource heavy code.
+
+For these practicals we'll be running our code in an interactive session, but you can also write job scritps and submit them, where they will be distributed across the nodes as needed.
+
+To start an interactive session we need to ask for some space on a worker node
+
+```{bash eval=FALSE}
+qlogin -pe smp 4 -l h_vmem=24G -l h_rt=24:0:0
+```
+
+Here we're asking for 4 CPU cores, 24GB of RAM and 24 hours of runtime as the FASTQ files are large, I want it to run as fast as possible.
+
+qlogin will start up in our home directory (N.B. ~ is a shortcut for your home directory) and we want to get into the project directory we created.
+The session was scheduled to the compute node ddy160:
+
+```{bash eval=FALSE}
+hostname # Confirms working on node
+```
+
+### Copying the Reference folder into the working directory
+
+
+```{bash eval=FALSE}
+cd ~/DNA_assignment3
+cp -vR /data/teaching/bci_teaching/DNAseq/Reference/ ./
+```
+
+### Copying the FASTQ files into the working directory
+
+```{bash eval=FALSE}
+## Ensure you are inside DNA_assignment3 folder to copy into
+cd ~/DNA_assignment3
+pwd # confirms current location - should be DNA_assignment3
+## Copy FASTQ files into home directory folder
+cp -vR /data/teaching/bci_teaching/assignment/DNAseq/*.fq.gz ./
+```
+
+### Confirming files were copied successfully
+
+```{bash eval=FALSE}
+ls -lh # Creates a list of files in directory. Should contain 'Reference' and 4 fq.gz (fastq) files (2x tumour, 2x germline).
+```
+
+### Loading required modules
+
+```{bash eval=FALSE}
+module load bowtie2
+module load samtools
+module load gatk
+```
+
+## Alignment of tumour and germline FASTQ files to chromosome 17
+
+First we need to make a directory to store our alignments in.
+
+```{bash eval=FALSE}
+cd ~/DNA_assignment3
+pwd
+mkdir Alignment
+```
+
+### Tumour alignment -> sorted BAM
+
+```{bash eval=FALSE}
+cd ~/DNA_assignment3 #Changes the working directory to your DNA assignment folder so all subsequent commands run from the correct location.
+pwd #Prints the current working directory, confirming that you are in ~/DNA_assignment3
+# Run Bowtie2 alignment on both tumour fastq files 
+time bowtie2 -p 4 \
+        --rg ID:tumour \
+        --rg SM:tumour \
+        --rg PL:ILLUMINA \
+        --rg LB:tumour \
+        -x Reference/Bowtie2Idx/GRCh38.108.chr17 \
+        -1 tumour_R1.fq.gz \
+        -2 tumour_R2.fq.gz |
+        samtools sort -o Alignment/tumour_sorted.bam -  # move result -> into alignment folder
+```
+
+### Germline alignment -> sorted BAM
+
+```{bash eval=FALSE}
+# Run Bowtie2 alignment on both germline fastq files
+time bowtie2 -p 4 \
+        --rg ID:germline \
+        --rg SM:germline \
+        --rg PL:ILLUMINA \
+        --rg LB:germline \
+        -x Reference/Bowtie2Idx/GRCh38.108.chr17 \
+        -1 germline_R1.fq.gz \
+        -2 germline_R2.fq.gz |
+        samtools sort -o Alignment/germline_sorted.bam -   # move result -> into alignment folder 
+```
+
+### Index tumour:
+
+```{bash eval=FALSE}
+cd ~/DNA_assignment3 # Moves into your DNA assignment directory so that all paths used in the command are correct.
+pwd # Prints the current working directory. Should be inside DNA_assignment3 folder where files are stored.
+samtools index Alignment/tumour_sorted.bam # Samtools index reads the coordinate-sorted BAM and generates a companion file (bam.bai). The output file is tumour_sorted.bam.bai 
+# This index allows tools like IGV, GATK, bcftools, and samtools itself to jump directly to any genomic position without scanning the entire BAM file.
+
+```
+
+### Index germline:
+
+```{bash eval=FALSE}
+cd ~/DNA_assignment3  # Moves into your DNA assignment directory so that all paths used in the command are correct.
+pwd # Prints the current working directory. Should be inside DNA_assignment3 folder where files are stored.
+samtools index Alignment/germline_sorted.bam # Samtools index reads the coordinate-sorted BAM and generates a companion file (bam.bai). The output file is germline_sorted.bam.bai 
+# This index allows tools like IGV, GATK, bcftools, and samtools itself to jump directly to any genomic position without scanning the entire BAM file.
+
+```
+
+## Looking at bam files
+
+```{bash eval=FALSE}
+# View first 3 lines of tumour
+samtools view Alignment/tumour_sorted.bam | head -n 3
+# Output on Apocrita:
+
+#[ha25679@ddy162 DNA_assignment3]$ samtools view Alignment/tumour_sorted.bam | head -n 3
+#HWI-D00133:114:C6F3HANXX:3:1210:9578:62957	161	17	80110	2	63M1D63M	=	18286418	0	CGAGACCAGCCTGGCCAACAAGCTGAAACCCTGACTCTATCAAAAATACAAAAAGTACCAGGGTGTGGGGGCACGCACCTATCGTCCCACCCGCCCAGGAGGCTGATTCAGTAGCATCTCTTCAAC	#/</BBFFFF/<<//</BF/F/</</F/B<<FFF#############################################################################################	AS:i:-62	XN:i:0	XM:i:25	XO:i:1	XG:i:1	NM:i:26	#MD:Z:20C1G6T24T2G1T3^C0A2A1T3G0T1T4G1A3T4T0A1T1G9G0G3G2A3A3G3	YT:Z:UP	RG:Z:tumour
+#HWI-D00133:114:C6F3HANXX:3:1302:17853:27700	163	17	86981	0	126M	=	87337	482	AGATTTCATGGACATTTCTTAGTTCCCCAAATTAATACTTTTATAATTTCTCATGCCCATCTTTACTGCAATCTCTGAACATAAATTGTGAAGATTTCATGGACACTTATCACTTCCCCAATCAAT	#B<<BBFFFFFFFFFFFFFFFFFFFFFFFFBFFFFFFF<FFFFFFFFFFFFFFBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFBFFFFFFFFFF<F<FFFFFFFFFBFFFFFFFFFFB	AS:i:-35	XS:i:-5	XN:i:0	XM:i:7	XO:i:0	XG:i:0	NM:i:7	MD:Z:17A22C10T1G3T0G2A64	YS:i:-40	YT:Z:CP	#RG:Z:tumour
+#HWI-D00133:114:C6F3HANXX:3:1315:12456:5698	163	17	86996	0	126M	=	87352	482	TTCTTAGTTCCCCAAATTAATACTTTTATAATTTCTCATGCCCATCTTTACTGCAATCTCTGAACATAAATTGTGAAGATTTCATGGACACTTATCACTTCCCCAATCAATACCCTTGTGATTTCC	#BBBBBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF/FFFFFFFFFFFFFFFBFBFFFFFFBFFFFFBFF/<BBFFFFFFBFFFFFFBFBBFF<F/BBFF	AS:i:-40	XS:i:-5	XN:i:0	XM:i:8	XO:i:0	XG:i:0	NM:i:8	MD:Z:2A22C10T1G3T0G2A77T1	YS:i:-50	YT:Z:CP	#RG:Z:tumour
+
+```
+
+```{bash eval=FALSE}
+# View first 3 lines of germline
+samtools view Alignment/germline_sorted.bam | head -n 3
+# Output on Apocrita:
+
+# [ha25679@ddy162 DNA_assignment3]$ samtools view Alignment/germline_sorted.bam | head -n 3
+#HWI-D00699:24:C6F21ANXX:7:2314:20190:85601	65	17	61023	0	126M	=	78322008	0	TATTTTTAGTACAGACGGGGCTTCACCATATTGGCCCAGATGGTCTTGATCTTCTGTCCTCGTGATCCGCCTGCCTCTGCCTCCCGCAGTGCTGGGATTATAGGCGTGAGCCCCCACACCAGGCCC	#AB=AA1=FGGF1EF>BGGG///<11:>1>11F111=0/=C1=1=1:1>111:1<11111<19>0=:11=<=C:F11?110:0?C>/9</<EF000.ED0FCCDGEDCG..;00.8CC.C#######	AS:i:-67	XN:i:0	XM:i:21	XO:i:0	XG:i:0	NM:i:21	MD:Z:25T3C6A0G1C2A1T1C5C3A1A8T9C0C6A0A13C11A4G2T4A0	YT:Z:UP	#RG:Z:germline
+#HWI-D00699:24:C6F21ANXX:7:1312:21183:90996	145	17	77653	8	126M	=	7055744	6978217	GTGAGGTTGAAAATTTGTTTATACCGGGGAGGCGGAGGTTGTGGTGAGCCGAGATCATCCCTTTTCCCTCCAGCCGGGGCAAAAAGAGTGAAACTCCATCTCAAAAAAAAAAAAAAAACCTAGTCC	###########################################################################@FF<90?000=000000001<11:0//GGAGDGGGGGGGGGDGGGGB=BBB	AS:i:-76	XN:i:0	XM:i:29XO:i:0	XG:i:0	NM:i:29	#MD:Z:0C5C0A1G1G1A3C2G0A3C0A1A3T8C1C11A0G0C0A2A2G1A8T6C35G0G2T1A0A0	YS:i:-5	YT:Z:DP	RG:Z:germline
+#HWI-D00133:114:C6F3HANXX:4:1313:20789:68520	81	17	87589	2	126M	=	52053980	0	TGTCTCCTGATAAGATGTTATCAATGACAATGCATGCCCGAAACTTCATTAGCAATTTTAATTTCGCCCTGGTCCTGTGGTCCTGTGATCTCACCCTGCCTCCATTTACCTTGTGATATTTTGTTA	#BFFFFF<F<BFB/B<FBFF<F<FBF/<//<B<FFBFB<<<BFFFFFFBFFB/BBBFFFFB/FBFB<FFFB/<FFFFFFFFFBBFFFBFFFFFFFFFFFFFFFFFFFFBBFFFFFFFFFFFFBBBBB	AS:i:-45	XN:i:0	XM:i:9	XO:i:0	XG:i:0	NM:i:9	MD:Z:1T31G0C12G21C21T0G14G14A3	YT:Z:UP	RG:Z:germline
+
+```
+
+
+# 2)	Mark duplicate reads in the alignment files.
+
+### Tumour - mark duplicates
+
+```{bash eval=FALSE}
+cd ~/DNA_assignment3/Alignment/
+pwd
+# Run GATK MarkDuplicates
+# This tool scans all aligned reads and identifies duplicate reads that come from PCR amplification, not from genuine independent DNA fragments.
+## We're setting the --java-options to reduce the strain of using MarkDuplicates
+## "-Xmx4G" tells Java to just use 4 GB of RAM
+## -I is the input (our aligned bam file)
+## -M is the name of a QC file that will be created in the process of marking
+## -O is the name of the output bam file with duplicate reads marked.
+time gatk --java-options "-Xmx4G" MarkDuplicates \
+        -I tumour_sorted.bam \
+        -M tumour_marked.metrics.txt \
+        -O tumour_marked.bam # Output file is called tumour_marked.bam
+```
+
+### Index tumour bam file:
+
+```{bash eval=FALSE}
+samtools index tumour_marked.bam
+```
+
+### Germline - mark duplicates
+
+```{bash eval=FALSE}
+cd ~/DNA_assignment3/Alignment/
+pwd
+# Run GATK MarkDuplicates
+# This tool scans all aligned reads and identifies duplicate reads that come from PCR amplification, not from genuine independent DNA fragments.
+## We're setting the --java-options to reduce the strain of using MarkDuplicates
+## "-Xmx1G" tells Java to just use 1 GB of RAM
+## -I is the input (our aligned bam file)
+## -M is the name of a QC file that will be created in the process of marking
+## -O is the name of the output bam file with duplicate reads marked.
+time gatk --java-options "-Xmx4G" MarkDuplicates \
+        -I germline_sorted.bam \
+        -M germline_marked.metrics.txt \
+        -O germline_marked.bam
+```
+
+### Index germline bam file:
+
+```{bash eval=FALSE}
+samtools index germline_marked.bam
+```
+
+Lets check the alignments now we've marked duplicates!
+
+### Tumour flagstat 
+
+```{bash eval=FALSE}
+# check how many reads are mapped, how many are duplicates, and the overall alignment quality.
+samtools flagstat tumour_marked.bam > tumour_marked_flagstat.txt
+
+# Tumour flatstat output:
+
+# 30466404 + 0 in total (QC-passed reads + QC-failed reads)
+# 30466404 + 0 primary
+# 0 + 0 secondary
+# 0 + 0 supplementary
+# 1228514 + 0 duplicates
+# 1228514 + 0 primary duplicates
+# 30170393 + 0 mapped (99.03% : N/A)
+# 30170393 + 0 primary mapped (99.03% : N/A)
+# 30466404 + 0 paired in sequencing
+# 15233202 + 0 read1
+# 15233202 + 0 read2
+# 27623390 + 0 properly paired (90.67% : N/A)
+# 30059564 + 0 with itself and mate mapped
+# 110829 + 0 singletons (0.36% : N/A)
+# 0 + 0 with mate mapped to a different chr
+# 0 + 0 with mate mapped to a different chr (mapQ>=5)
+
+```
+
+### Germline flagstat
+
+```{bash eval=FALSE}
+# check how many reads are mapped, how many are duplicates, and the overall alignment quality.
+samtools flagstat germline_marked.bam > germline_marked_flagstat.txt
+
+# Germline flagstat output:
+
+# 25809738 + 0 in total (QC-passed reads + QC-failed reads)
+# 25809738 + 0 primary
+# 0 + 0 secondary
+# 0 + 0 supplementary
+# 1263305 + 0 duplicates
+# 1263305 + 0 primary duplicates
+# 25542805 + 0 mapped (98.97% : N/A)
+# 25542805 + 0 primary mapped (98.97% : N/A)
+# 25809738 + 0 paired in sequencing
+# 12904869 + 0 read1
+# 12904869 + 0 read2
+# 23016744 + 0 properly paired (89.18% : N/A)
+# 25438438 + 0 with itself and mate mapped
+# 104367 + 0 singletons (0.40% : N/A)
+# 0 + 0 with mate mapped to a different chr
+# 0 + 0 with mate mapped to a different chr (mapQ>=5)
+
+```
+
+### Downloading results to local machine (Mac Terminal)
+
+```{bash eval=FALSE}
+scp ha25679@login.hpc.qmul.ac.uk:~/DNA_assignment3/Alignment/tumour_marked_flagstat.txt ~/Downloads/ # Tumour flagstat file will appear in local downloads folder as "tumour_marked_flagstat.txt"
+scp ha25679@login.hpc.qmul.ac.uk:~/DNA_assignment3/Alignment/germline_marked_flagstat.txt ~/Downloads/ # Germline flagstat file will appear in local downloads folder "germline_marked_flagstat.txt"
+```
+
+The files then appear in my Downloads folder.
+
+# 3)	Run Base Score Quality Recalibration following the GATK workflow.
+
+Base Quality Score Recalibration (BQSR) was performed using GATK.
+BaseRecalibrator was first run on the marked BAM files with read groups (*_marked_RG.bam) using a known variants VCF from 1000 Genomes (Omni 2.5), generating recalibration tables (*_recal_data.table). These tables were then applied using ApplyBQSR to produce final recalibrated BAM files (tumour_final.bam and germline_final.bam), which were indexed with samtools index.
+
+### Tumour: BaseRecalibrator
+
+```{bash eval=FALSE}
+cd ~/DNA_assignment3/Alignment/
+pwd
+# Run BaseRecalibrator with 4GB memory
+gatk --java-options "-Xmx4G" BaseRecalibrator \
+    -I tumour_marked.bam \
+    -R ../Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa \
+    --known-sites ../Reference/gatkResources/resources_broad_hg38_v0_1000G_omni2.5.hg38.noCHR.vcf \
+    -O tumour_recal_data.table # Your output is a file called tumour_recal_data.table
+
+```
+
+### Tumour: ApplyBQSR
+
+```{bash eval=FALSE}
+# Run ApplyBQSR with 4GB memory
+gatk --java-options "-Xmx4G" ApplyBQSR \
+    -R ../Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa \
+    -I tumour_marked.bam \
+    --bqsr-recal-file tumour_recal_data.table \
+    -O tumour_final.bam
+
+```
+
+### Index tumour_final.bam
+
+```{bash eval=FALSE}
+samtools index tumour_final.bam
+```
+
+### Germline: BaseRecalibrator
+
+```{bash eval=FALSE}
+gatk --java-options "-Xmx4G" BaseRecalibrator \
+    -I germline_marked.bam \
+    -R ../Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa \
+    --known-sites ../Reference/gatkResources/resources_broad_hg38_v0_1000G_omni2.5.hg38.noCHR.vcf \
+    -O germline_recal_data.table
+
+```
+
+### Germline: ApplyBQSR
+
+```{bash eval=FALSE}
+gatk --java-options "-Xmx4G" ApplyBQSR \
+    -R ../Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa \
+    -I germline_marked.bam \
+    --bqsr-recal-file germline_recal_data.table \
+    -O germline_final.bam
+
+```
+
+### Index germline_final.bam
+
+```{bash eval=FALSE}
+samtools index germline_final.bam
+```
+
+### Flagstat final bam files:
+
+```{bash eval=FALSE}
+samtools flagstat tumour_final.bam > tumour_final_flagstat.txt # flagstat tumour_final.bam
+
+# 30466404 + 0 in total (QC-passed reads + QC-failed reads)
+# 30466404 + 0 primary
+# 0 + 0 secondary
+# 0 + 0 supplementary
+# 1228514 + 0 duplicates
+# 1228514 + 0 primary duplicates
+# 30170393 + 0 mapped (99.03% : N/A)
+# 30170393 + 0 primary mapped (99.03% : N/A)
+# 30466404 + 0 paired in sequencing
+# 15233202 + 0 read1
+# 15233202 + 0 read2
+# 27623390 + 0 properly paired (90.67% : N/A)
+# 30059564 + 0 with itself and mate mapped
+# 110829 + 0 singletons (0.36% : N/A)
+# 0 + 0 with mate mapped to a different chr
+# 0 + 0 with mate mapped to a different chr (mapQ>=5)
+
+
+samtools flagstat germline_final.bam > germline_final_flagstat.txt # flagstat_germline_final.bam
+
+# 25809738 + 0 in total (QC-passed reads + QC-failed reads)
+# 25809738 + 0 primary
+# 0 + 0 secondary
+# 0 + 0 supplementary
+# 1263305 + 0 duplicates
+# 1263305 + 0 primary duplicates
+# 25542805 + 0 mapped (98.97% : N/A)
+# 25542805 + 0 primary mapped (98.97% : N/A)
+# 25809738 + 0 paired in sequencing
+# 12904869 + 0 read1
+# 12904869 + 0 read2
+# 23016744 + 0 properly paired (89.18% : N/A)
+# 25438438 + 0 with itself and mate mapped
+# 104367 + 0 singletons (0.40% : N/A)
+# 0 + 0 with mate mapped to a different chr
+# 0 + 0 with mate mapped to a different chr (mapQ>=5)
+
+```
+
+samtools flagstat on the final recalibrated BAMs showed high alignment quality for both tumour and germline samples. For the tumour, 30.5M reads were sequenced, of which 99.0% mapped to chr17 and 90.7% were properly paired, with a low duplication rate (~4%). The germline sample had 25.8M reads with 99.0% mapped and 89.2% properly paired, and a duplication rate of ~5%. Very few singletons were observed and no read pairs had mates mapping to different chromosomes, indicating good library preparation and alignment.
+
+### Downloading results to local machine (Mac Terminal)
+
+```{bash eval=FALSE}
+scp ha25679@login.hpc.qmul.ac.uk:~/DNA_assignment3/Alignment/tumour_final_flagstat.txt ~/Downloads/ # Tumour flagstat file will appear in local downloads folder as "tumour_final_flagstat.txt"
+scp ha25679@login.hpc.qmul.ac.uk:~/DNA_assignment3/Alignment/germline_final_flagstat.txt ~/Downloads/ # Germline flagstat file will appear in local downloads folder "germline_final_flagstat.txt"
+```
+
+# 4)	Run Varscan on tumour sample only against the reference genome (chromosome 17) to identify all the variants, generating the VCF variant file. 
+
+### cd into your project directory and copy the jar file to run VarScan
+
+```{bash eval=FALSE}
+cd ~/DNA_assignment3
+cp -vR /data/teaching/bci_teaching/DNAseq/VarScan.v2.4.3.jar ./
+```
+
+### Make an output directory for Varscan
+
+```{bash eval=FALSE}
+mkdir VCF
+```
+
+### Load openjdk (java) and samtools first in order to run VarScan.
+
+For this step I called variants in the tumour sample only, using the chromosome 17 reference sequence. VarScan2 takes a pileup file as input, so I generated a pileup on-the-fly from the final processed tumour BAM and piped it directly into VarScan to avoid writing large intermediate files.
+
+
+```{bash eval=FALSE}
+module load openjdk/21.0.0_35-gcc-12.2.0
+module load samtools
+```
+
+### Run Variant Calling with varscan on tumour sample (chr17)
+
+```{bash eval=FALSE}
+samtools mpileup \
+        -q 20 \
+        -f Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa \
+        Alignment/tumour_final.bam | \
+java -jar VarScan.v2.4.3.jar mpileup2snp \
+        --min-coverage 20 \
+        --min-avg-qual 20 \
+        --min-read2 4 \
+        --p-value 0.2 \
+        --min-var-freq 0.01 \
+        --strand-filter 1 \
+        --output-vcf 1 > VCF/tumour_chr17_varscan.vcf
+```
+
+This command ran successfully and produced a VCF file (VCF/tumour_chr17_varscan.vcf) containing 77,876 SNP calls on chromosome 17 for the tumour sample only.
+
+### Download VCF file to home directory
+
+```{bash eval=FALSE}
+scp ha25679@login.hpc.qmul.ac.uk:~/DNA_assignment3/VCF/tumour_chr17_varscan.vcf ~/Downloads/
+```
+
+The tumour VCF file is now saved to my downloads folder.
+
+# 5)	Use Annovar to filter the list of variants against 1000G and exome sequencing project, removing all variants that occur in more than 1% of the cases in these datasets. Then use Annovar to annotate the remaining variants with gene names, dbSNP id and cosmic id.
+
+### Load modules
+
+To prepare the environment for running ANNOVAR, I unloaded the default Perl module to avoid conflicts and then loaded the ANNOVAR module, which includes the correct Perl version and access to ANNOVAR executables.
+
+```{bash eval=FALSE}
+module unload perl ## remove conflicts
+module load annovar  ## load annovar + correct perl
+```
+
+### Convert vcf format into annovar-friendly version
+
+I converted the VarScan VCF file into ANNOVAR’s input format using convert2annovar.pl, retaining only PASS variants and including INFO fields. This creates a cleaned, ANNOVAR-ready file that can be processed for population frequency filtering and functional annotation.
+
+```{bash eval=FALSE}
+convert2annovar.pl --format vcf4 \
+        VCF/tumour_chr17_varscan.vcf \
+        --includeinfo \
+        --filter PASS \
+        --outfile VCF/tumour_chr17_varscan.pass.vcf
+```
+
+### Create annovar folder to store annovar output
+
+I created an ANNOVAR directory within my working folder to store all intermediate and final ANNOVAR output files in an organised location. This ensures downstream filtering and annotation results are written cleanly into a dedicated workspace.
+
+```{bash eval=FALSE}
+cd ~/DNA_assignment3 ## Go into working directory
+mkdir -p ANNOVAR ## Make sure ANNOVAR folder exists
+
+```
+
+### Filtering variants using 1000 genomes and exome sequencing project
+
+I filtered the VarScan variant list against the 1000 Genomes database using ANNOVAR to remove all variants with a minor allele frequency (MAF) greater than 1%, ensuring that common population polymorphisms are excluded prior to annotation.
+
+```{bash eval=FALSE}
+##Filter out mutations from 1000 genomes with maf > 0.01
+annotate_variation.pl -filter \
+    -dbtype 1000g2015aug_all \
+    -buildver hg38 \
+    -out ANNOVAR/tumour_chr17 \
+    VCF/tumour_chr17_varscan.pass.vcf \
+    /data/teaching/bci_teaching/DNAseq/Reference/humandb/ \
+    -maf 0.01
+```
+
+Next, I applied a second population frequency filter using the Exome Sequencing Project (ESP6500), again removing variants occurring in more than 1% of cases. This step further enriches the dataset for rare or potentially pathogenic variants.
+
+```{bash eval=FALSE}
+##Filter our mutations in exome sequencing project with maf > 0.01
+annotate_variation.pl -filter \
+    -dbtype esp6500siv2_all \
+    -buildver hg38 \
+    -out ANNOVAR/tumour_chr17 \
+    ANNOVAR/tumour_chr17.hg38_ALL.sites.2015_08_filtered \
+    /data/teaching/bci_teaching/DNAseq/Reference/humandb/ \
+    -score_threshold 0.01
+```
+
+### Annotate tumour annovar file with Gene names, dbSNP IDs and COSMIC IDs.
+
+After filtering, I used table_annovar.pl to annotate the remaining variants with gene names (refGene), known SNP identifiers (dbSNP), cancer mutation annotations (COSMIC), and cytogenetic band information. This produces the final biologically meaningful, multi-annotation variant table for downstream interpretation.
+
+```{bash eval=FALSE}
+## annotate the remaining variants with gene names, dbSNP ID and COSMIC ID
+table_annovar.pl \
+        ANNOVAR/tumour_chr17.hg38_esp6500siv2_all_filtered \
+        /data/teaching/bci_teaching/DNAseq/Reference/humandb/ \
+        -buildver hg38 \
+        -out ANNOVAR/tumour_chr17_annotated \
+        -remove \
+        -otherinfo \
+        -protocol refGene,avsnp150,cosmic92_coding,cytoBand \
+        -operation g,f,f,r \
+        -nastring .
+```
+
+### Download Annovar file to home directory
+
+I downloaded the final ANNOVAR multianno file from Apocrita to my local machine using scp so that it could be further inspected and processed in R.
+
+```{bash eval=FALSE}
+scp ha25679@login.hpc.qmul.ac.uk:~/DNA_assignment3/ANNOVAR/tumour_chr17_annotated.hg38_multianno.txt ~/Downloads/
+```
+
+Now we have the annotated variant calls in downloads folder.
+
+### Examining our variant calls in R
+
+I loaded the ANNOVAR multianno file into R, added appropriate column names, and parsed the VCF-format information to extract allele depth and variant allele frequency (VAF). These fields were converted to numeric form and merged back into the annotated dataset for filtering.
+
+```{r}
+require(tidyverse)
+
+setwd("~/Downloads/Omics Coursework/DNA Seq")
+
+## Load multianno file (adjust path if needed)
+variants <- read.delim(
+  "tumour_chr17_annotated.hg38_multianno.txt",
+  header = FALSE,
+  sep = "\t",
+  stringsAsFactors = FALSE
+)
+
+## Add headers: first 13 from ANNOVAR, last 10 are VCF-style fields
+vcf_headings <- c("chr", "position", "id", "ref", "alt",
+                  "qual", "filter", "info", "format", "sample")
+
+Annotated_variants <- setNames(
+  variants[-1, ],                                   # all rows except header
+  c(variants[1, 1:13] %>% unlist(), vcf_headings)   # ANNOVAR cols + VCF cols
+)
+
+## Split FORMAT / SAMPLE strings into separate columns
+headings <- str_split(Annotated_variants$format[1], ":") %>% unlist()
+
+AlleleCounts <- str_split(Annotated_variants$sample, ":") %>%
+  do.call("rbind", .) %>%
+  as.data.frame() %>%
+  setNames(headings)
+
+## Make FREQ numeric (remove %)
+AlleleCounts <- AlleleCounts %>%
+  mutate(FREQ = gsub("%", "", FREQ) %>% as.numeric())
+
+## Add these columns back onto the annotated variants
+Annotated_variants <- cbind(Annotated_variants, AlleleCounts)
+
+Annotated_variants
+
+```
+
+
+# 6)	Filter out variants with a variant allele frequency of <10%
+
+Finally, I filtered the annotated variant table to retain only variants with a VAF ≥ 10%, producing the final set of tumour-specific variants required for submission. This ensures that only confidently supported variants remain in the final output.
+
+```{r}
+Annotated_variants_VAF10 <- subset(Annotated_variants, FREQ > 10)
+Annotated_variants_VAF10
+# Save final filtered VAF to documents
+write.table(
+  Annotated_variants_VAF10,
+  "tumour_chr17_annotated_VAFge10.tsv", # name of the saved file 
+  sep="\t", quote=FALSE, row.names=FALSE
+)
+
+```
+
+
+# 7)	Can you find any variants for gene TP53? If so, can you list the variant(s), e.g., the coordinate of the variants in chromosome 17; what is the mutation, e.g., reference allele, mutated allele; what is the annotation of this variant(s), such as cDNA position, affected amino acid, the change of the amino acid? (4 points)
+
+```{r}
+TP53_vars <- subset(Annotated_variants, Gene.refGene == "TP53")
+TP53_vars
+## clean version
+TP53_clean <- Annotated_variants %>%
+  filter(Gene.refGene == "TP53") %>%
+  select(
+    Chr, Start, End, Ref, Alt,
+    Func.refGene,
+    ExonicFunc.refGene,
+    AAChange.refGene
+  )
+TP53_clean
+
+```
+
+I identified one TP53 variant in the tumour sample: a T->G substitution at chr17:7674262, located in an exonic region and annotated as a nonsynonymous SNV. According to the ANNOVAR AAChange field, this mutation results in a specific cDNA and amino-acid change, indicating a potential functional alteration in TP53. 
+
+# 8)	Use MuTect2 or VarScan in the somatic mode to run the tumour and germline samples together (using germline as control), generate the resulting VCF file of all somatic mutations, and annotate mutations using ANNOVAR. Output all command lines used. Then list the mutation(s) in gene TP53, with all associated annotation. What is the variant allele frequency of the mutation(s) in TP53? (5 points)
+
+### Run Mutect2
+
+When you have both a tumour and a normal sample you could use Mutect2 as below:
+
+```{bash eval=FALSE}
+gatk Mutect2 \
+  -R Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa \
+  -I Alignment/tumour_final.bam \
+  -I Alignment/germline_final.bam \
+  -normal germline \
+  -O VCF/tumour_vs_germline_mutect2.unfiltered.vcf.gz
+
+```
+
+### Filter Mutect2 VCF
+
+```{bash eval=FALSE}
+gatk FilterMutectCalls \
+  -R Reference/Homo_sapiens.GRCh38.108.dna.chromosome.17.fa \
+  -V VCF/tumour_vs_germline_mutect2.unfiltered.vcf.gz \
+  -O VCF/tumour_vs_germline_mutect2.filtered.vcf.gz
+
+```
+
+### Convert Mutect2 calls to Annovar-friendly file
+
+We’re going to use annovar for our annotation. First we need to load the software
+
+```{bash eval=FALSE}
+## Unzip for ANNOVAR
+gunzip -c VCF/tumour_vs_germline_mutect2.filtered.vcf.gz \
+  > VCF/tumour_vs_germline_mutect2.filtered.vcf
+
+## Load annovar (and clear perl clash)
+module unload perl
+module load annovar
+
+## VCF -> avinput
+convert2annovar.pl \
+  --format vcf4old \
+  VCF/tumour_vs_germline_mutect2.filtered.vcf \
+  --includeinfo \
+  --outfile ANNOVAR/tumour_vs_germline_mutect2
+
+# gives: ANNOVAR/tumour_vs_germline_mutect2
+```
+
+
+### Annotate Mutect2 somatic calls with ANNOVAR
+
+```{bash eval=FALSE}
+table_annovar.pl \
+  ANNOVAR/tumour_vs_germline_mutect2 \
+  /data/teaching/bci_teaching/DNAseq/Reference/humandb/ \
+  -buildver hg38 \
+  -out ANNOVAR/tumour_vs_germline_mutect2_annotated \
+  -remove \
+  -otherinfo \
+  -protocol refGene,avsnp150,cosmic92_coding,cytoBand \
+  -operation g,f,f,r \
+  -nastring .
+  
+# gives: ANNOVAR/tumour_vs_germline_mutect2_annotated.hg38_multianno.txt
+# ANNOVAR/tumour_vs_germline_mutect2_annotated.hg38_multianno.vcf
+```
+
+### Download vcf to downloads in home directory 
+
+```{bash eval=FALSE}
+## Download file to home directory (downloads)
+scp ha25679@login.hpc.qmul.ac.uk:~/DNA_assignment3/ANNOVAR/tumour_vs_germline_mutect2_annotated.hg38_multianno.txt ~/Downloads/
+```
+
+### Examining our variant calls
+
+```{r}
+require(tidyverse)
+
+setwd("~/Downloads/Omics Coursework/DNA Seq")
+
+## Read the multianno file with first row as header row in the data
+variants <- read.delim(
+  "tumour_vs_germline_mutect2_annotated.hg38_multianno.txt",
+  header = FALSE, ## header = FALSE = R treats the first row as data, not column names
+  sep = "\t",
+  stringsAsFactors = FALSE
+)
+
+## VCF-style columns at the end
+vcf_headings <- c("chr", "position", "id", "ref", "alt",
+                  "qual", "filter", "info", "format", "sample")
+
+## First 13 columns are ANNOVAR annotation, then 10 VCF fields
+Annotated_variants <- setNames(
+  variants[-1, ],                                   # all rows except the first
+  c(variants[1, 1:13] %>% unlist(), vcf_headings)   # ANNOVAR names + VCF names
+)
+
+## Have a look
+head(Annotated_variants)
+
+```
+
+
+We also have all the counts stored as a string, making it hard to use for filtering etc ...
+
+```{r}
+require(tidyverse)
+
+## 1. Start from Annotated_variants table created from
+## tumour_vs_germline_mutect2_annotated.hg38_multianno.txt
+
+## Filter to TP53 only
+TP53_variants <- subset(Annotated_variants, Gene.refGene == "TP53")
+TP53_variants
+```
+
+```{r}
+## 2. Now do the FORMAT / SAMPLE splitting on TP53_variants
+
+headings <- str_split(TP53_variants$format[1], ":") %>% unlist()
+
+AlleleCounts <- str_split(TP53_variants$sample, ":") %>%
+  do.call("rbind", .) %>%
+  as.data.frame() %>%
+  setNames(headings)
+
+AlleleCounts
+```
+
+
+```{r}
+## 4. Attach back onto TP53 row
+TP53_variants <- cbind(TP53_variants, AlleleCounts)
+TP53_variants
+
+```
+Using Mutect2 in somatic (tumour–normal) mode, the tumour and matched germline BAM files were analysed together, allowing true somatic mutations to be distinguished from germline background. The resulting VCF was filtered with FilterMutectCalls and annotated using ANNOVAR.
+
+Within the annotated output, three somatic variants were identified in TP53. One variant was located in an exonic region at chr17:7674262, involving a T->G substitution. ANNOVAR classified this as a nonsynonymous SNV, indicating an amino-acid–altering change in TP53, with a variant allele frequency of approximately 3.8%. VAF was taken from the tumour sample FORMAT field (FREQ for VarScan output / AF for Mutect2 output) and expressed as a percentage.
+
+In addition, two further somatic variants were detected in the 3′ untranslated region of TP53, at chr17:7668879 (T->A) and chr17:7668884 (C->A), with variant allele frequencies of approximately 4.1% and 3.8%, respectively. As these variants fall within non-coding regions, they do not affect the TP53 protein sequence and are best interpreted as non-coding somatic variants of uncertain functional significance, in contrast to the exonic nonsynonymous mutation.

@@ -1,0 +1,465 @@
+---
+title: "Practical 6: inference of immune microenvironment using RNA-seq"
+output: html_document
+date: "2026-01-22"
+---
+
+
+```{r setup, include=FALSE}
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+library(gplots)
+```
+
+
+Practical 6: inference of immune microenvironment using RNA-seq
+By Jun Wang for MSc Cancer Genomics and Data Science 2025/2026
+
+This is an R Markdown document for the practical of bulk RNA deconvolution. Here we will use a range of deconvolution methods to deconvolute buld RNA-seq data to infer immune and stramal cell composition and abundance. We will also assess how similar or different outputs from different methods are. Finally we use immune cell profile to cluster samples and generate heatmap for visualisation. You will also learn how to do pathway enrichment analysis using the GSVA R package
+
+1. Install four R packages from GitHub using devtools. These four deconvolution methods are xCell, EPIC, MCPcounter and Decosus
+
+Install GSVA and GSEABase r packages, also the limma package
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("GSVA")
+BiocManager::install("GSEABase")
+BiocManager::install("limma")
+```
+
+Load the GSVA R package
+```{r}
+library(GSVA)
+```
+
+Install xCell using devtools::install_github
+```{r}
+install.packages("devtools")
+library(devtools)
+devtools::install_github('dviraran/xCell')
+library(xCell)
+```
+
+Install EPIC using devtools::install_github
+```{r}
+devtools::install_github("GfellerLab/EPIC", build_vignettes=TRUE)
+library(EPIC)
+```
+
+Install MCPCounter using install_github
+```{r}
+install.packages("curl") ##Installs the MCPcounter dependancy 'curl'
+install_github("ebecht/MCPcounter",ref="master", subdir="Source")
+library(MCPcounter)
+```
+
+Install Decosus using install_github
+```{r}
+devtools::install_github('BioInforCore-BCI/Decosus')
+library(Decosus)
+```
+
+2. Read in the RNA-seq normalised gene expression data of 10 matched breast cancer tumour and normal samples
+
+```{r}
+exp_data <- read.table(file="exp_data_BRCA_10_tumour_normal_pairs.txt", header=T, sep="\t", row.names=1)
+
+dim(exp_data)
+head(exp_data)
+
+boxplot(exp_data)
+```
+
+3. Run the four deconvolution methods seperately.
+
+3.1. Run xCell to deconvolute the buld RNA-seq data
+
+```{r}
+library(xCell)
+est_xCell <- xCellAnalysis(exp_data)
+dim(est_xCell)
+```
+
+This function performs all three steps in xCell, which can be performed seperately as well:
+
+rawEnrichmentAnalysis
+transformScores
+spillOver
+
+The expression matrix should be a matrix with genes in rows and samples in columns. The rownames should be gene symbols. xCell uses the expression levels ranking and not the actual values, thus normalization does not have an effect, however normalizing to gene length is required.
+
+Note that xCell produces enrichment scores, not percentages. It is not a deconvolution method, but an enrichment method. That means that the main usage is for comparing across samples, not across cell types. 
+
+A quick heatmap to see the data, which samples clustered based on the immune profile
+```{r}
+heatmap(est_xCell)
+heatmap(est_xCell, col=colorRampPalette(c("blue","white","red"))(100))
+```
+
+we can also use heatmap.2 to product heatmaps with defined clustering methods, and also use colour bars for biological groups
+```{r xcell_heatmap, fig.width=12, fig.height=10}
+library(gplots)
+
+hc <- hclust(as.dist(1 - cor(est_xCell, method = "spearman")), method = "ward.D")
+hr <- hclust(as.dist(1 - cor(t(est_xCell), method = "pearson")), method = "average")
+
+group <- c(rep("Tumour", 10), rep("Normal", 10))
+group_cols <- c(Tumour = "blue", Normal = "brown")
+ColSideColors <- unname(group_cols[group])
+
+par(mar = c(2, 2, 2, 2))
+
+heatmap.2(
+  as.matrix(est_xCell),
+  Rowv = as.dendrogram(hr),
+  Colv = as.dendrogram(hc),
+  col = bluered(75),
+  scale = "row",
+  trace = "none",
+  density.info = "none",
+  key = TRUE,
+  keysize = 0.6,
+  margins = c(4, 4),
+  labRow = FALSE,
+  ColSideColors = ColSideColors
+)
+
+legend(
+  "topright",
+  legend = names(group_cols),
+  fill = unname(group_cols),
+  title = "Groups",
+  cex = 0.8,
+  bty = "n"
+)
+
+```
+
+
+
+
+
+3.2. Run EPIC to deconvolute the buld RNA-seq data.
+
+EPIC predicts the proportions of the various cell types for which we have gene expression reference profiles (and corresponding gene signatures). 
+It needs as input a matrix of the TPM (or RPKM) gene expression from the samples for which to estimate cell proportions.
+As our data was log2 transfored, not we need to unlog the data to generated RPKM matrix or equivalent
+
+```{r}
+library(EPIC)
+exp_data_unlog <- 2^exp_data
+
+out <- EPIC(bulk = exp_data_unlog) ## out is a list of 3
+est_EPIC_mRNAProp <- t(out$mRNAProportions)
+est_EPIC_cellProp <- t(out$cellFractions)
+dim(est_EPIC_mRNAProp)
+dim(est_EPIC_cellProp)
+
+sum(est_EPIC_mRNAProp[,1])
+sum(est_EPIC_mRNAProp[,2])
+sum(est_EPIC_cellProp[,1])
+sum(est_EPIC_cellProp[,2])
+```
+depending on the bulk sample, it is possible that some other cell types are present for which we don't have any reference profile. EPIC returns the proportion of these remaining cells under the name "other cells". In the case of tumor samples, most of these other cells would certainly correspond to the cancer cells, but it could be that there are also some stromal cells or epithelial cells for example.
+
+As described in our manuscript, EPIC first estimates the proportion of mRNA per cell type in the bulk and then it uses the fact that some cell types have more mRNA copies per cell than other to normalize this and obtain an estimate of the proportion of cells instead of mRNA (EPIC function returns both information if you need the one or the other).
+
+A quick heatmap to see the data, which samples clustered based on the immune profile
+```{r}
+heatmap(est_EPIC_mRNAProp)
+heatmap(est_EPIC_mRNAProp, col=colorRampPalette(c("blue","white","red"))(100))
+
+heatmap(est_EPIC_cellProp)
+heatmap(est_EPIC_cellProp, col=colorRampPalette(c("blue","white","red"))(100))
+```
+
+3.3. Run MCPcounter to deconvolute the buld RNA-seq data
+
+The function MCPcounter.estimate to estimate the abundance of immune and stromal cells using the geometric mean of marker gene expression for each cell type
+
+```{r}
+library(MCPcounter)
+est_MCPcounter <- MCPcounter.estimate(exp_data,featuresType="HUGO_symbols")
+dim(est_MCPcounter)
+head(est_MCPcounter)
+heatmap(as.matrix(est_MCPcounter),col=colorRampPalette(c("blue","white","red"))(100)) 
+
+hc <- hclust(as.dist(1-cor(est_MCPcounter, method = "spearman")), method = "ward.D")
+hr <- hclust(as.dist(1-cor(t(est_MCPcounter), method="pearson")), method = "average")
+heatmap.2(as.matrix(est_MCPcounter), Rowv=as.dendrogram(hr), Colv=as.dendrogram(hc), col=bluered(75), scale="row", trace="none", margins=c(8,16))
+```
+
+3.4. Next we run Decosus, a consensus based method integrating the calls of seven methods, to deconvolute the bulk RNA-seq data. The input data is the unlogged RPKM, CPM or TPM values
+
+```{r}
+library(Decosus)
+exp_data_unlog1 <- exp_data_unlog
+exp_data_unlog1$hgnc_symbols <- rownames(exp_data_unlog)
+est_Decosus <- Decosus::cosDeco(x = exp_data_unlog1, rnaseq=T, plot=TRUE)
+
+est_Decosus_samples <- est_Decosus$main_samples
+est_Decosus_cells <- est_Decosus$main_cells
+```
+
+plot the heatmap for Decosus immune and stroma cell estimates
+```{r}
+est_Decosus_cells <- est_Decosus_cells[-2, ]
+dim(est_Decosus_cells)
+                                       heatmap(as.matrix(est_Decosus_cells),col=colorRampPalette(c("blue","white","red"))(100))
+
+
+hc <- hclust(as.dist(1-cor(est_Decosus_cells, method = "spearman")), method = "ward.D")
+hr <- hclust(as.dist(1-cor(t(est_Decosus_cells), method="pearson")), method = "average")
+heatmap.2(as.matrix(est_Decosus_cells), Rowv=as.dendrogram(hr), Colv=as.dendrogram(hc), col=bluered(75), scale="row", trace="none", margins=c(6,12))
+```
+
+4. Now lets compare the cell abundance estimates between different methods
+
+Lets use B and T cells as example
+
+For B cells, compare results among the estimates of xCell, EPIC, MCPcounter and Decosus
+
+```{r}
+est_B_xCell <- est_xCell[which(rownames(est_xCell) == "B-cells"),]
+est_B_EPICcell <- est_EPIC_cellProp[which(rownames(est_EPIC_cellProp) == "Bcells"),]
+est_B_MCPcounter <- est_MCPcounter[which(rownames(est_MCPcounter) == "B lineage"),]
+est_B_Decosus <- est_Decosus_cells[which(rownames(est_Decosus_cells) == "B cell_consensus"),]
+```
+
+Now plot their correlations and calculate the correlation coefficients
+```{r}
+plot(est_B_xCell, est_B_EPICcell, xlab="B xCell", ylab="B EPIC")
+plot(est_B_EPICcell, est_B_MCPcounter, xlab="B EPIC", ylab="B MCPcounter")
+plot(est_B_EPICcell, as.numeric(est_B_Decosus), xlab="B EPIC", ylab="B Decosus")
+plot(as.numeric(est_B_Decosus), est_B_MCPcounter, xlab="B Decosus", ylab="B MCPcounter")
+
+cor.test(est_B_EPICcell, est_B_MCPcounter)
+cor.test(est_B_EPICcell, as.numeric(est_B_Decosus))
+cor.test(as.numeric(est_B_Decosus), est_B_MCPcounter)
+```
+
+
+Next, let's test the correlation for CD8+ T cells among the four methods
+```{r}
+est_cd8T_xCell <- est_xCell[which(rownames(est_xCell) == "CD8+ T-cells"),]
+est_cd8T_EPICcell <- est_EPIC_cellProp[which(rownames(est_EPIC_cellProp) == "CD8_Tcells"),]
+est_cd8T_MCPcounter <- est_MCPcounter[which(rownames(est_MCPcounter) == "CD8 T cells"),]
+est_cd8T_Decosus <- est_Decosus_cells[which(rownames(est_Decosus_cells) == "T cell CD8+_consensus"),]
+```
+
+Now plot their correlations and calculate the correlation coefficients
+```{r}
+plot(est_cd8T_xCell, est_cd8T_EPICcell, xlab="CD8+_T xCell", ylab="CD8+_T EPIC")
+plot(est_cd8T_EPICcell, est_cd8T_MCPcounter, xlab="CD8+_T EPIC", ylab="CD8+_T MCPcounter")
+plot(est_cd8T_EPICcell, as.numeric(est_cd8T_Decosus), xlab="CD8+_T EPIC", ylab="CD8+_T Decosus")
+plot(as.numeric(est_cd8T_Decosus), est_cd8T_MCPcounter, xlab="CD8+_T Decosus", ylab="CD8+_T MCPcounter")
+
+cor.test(est_cd8T_EPICcell, est_cd8T_MCPcounter)
+cor.test(est_cd8T_EPICcell, as.numeric(est_cd8T_Decosus))
+cor.test(as.numeric(est_cd8T_Decosus), est_cd8T_MCPcounter)
+```
+
+5. Introduction to Immunedeconv R package.
+
+Immunedeconv is an R package for unified access to computational methods for estimating immune cell fractions from bulk RNA sequencing data.
+So you can run a wide range of individual methods using one programme
+
+https://omnideconv.org/immunedeconv/index.html
+
+Sturm, G., Finotello, F., Petitprez, F., Zhang, J. D., Baumbach, J., Fridman, W. H., …, List, M., Aneichyk, T. (2019). Comprehensive evaluation of transcriptome-based cell-type quantification methods for immuno-oncology. Bioinformatics, 35(14), i436-i445.
+
+5.1. Install immunedeconv and run quantiseq and timer using immunedeconv R package
+```{r}
+install.packages("remotes")
+remotes::install_github("omnideconv/immunedeconv")
+```
+
+Run quantiseq using immunedeconv
+```{r}
+library("immunedeconv")
+est_quantiseq <- immunedeconv::deconvolute(exp_data, "quantiseq")
+head(est_quantiseq)
+est_quantiseq_df <- as.data.frame(est_quantiseq)
+est_quantiseq <- est_quantiseq_df[,c(2:21)]
+rownames(est_quantiseq) <- est_quantiseq_df[,1]
+heatmap(as.matrix(est_quantiseq),col=colorRampPalette(c("blue","white","red"))(100))
+```
+
+Run Timer using immunedeconv
+```{r}
+type <- c("brca","brca","brca","brca","brca","brca","brca","brca","brca","brca","brca","brca","brca","brca","brca","brca","brca","brca","brca","brca")
+est_timer<-immunedeconv::deconvolute(exp_data, "timer", indications = type)
+head(est_timer)
+est_timer_df <- as.data.frame(est_timer)
+est_timer <- est_timer_df[,c(2:21)]
+rownames(est_timer) <- est_timer_df[,1]
+heatmap(as.matrix(est_timer),col=colorRampPalette(c("blue","white","red"))(100))
+```
+```{r}
+### use immunodeconv to run consensus_tme
+est_consensus_tme <- immunedeconv::deconvolute(exp_data, "consensus_tme", indications = type)
+```
+
+
+5.2. Compare the abundance of immune cell infiltration between tumour and march normal groups
+
+Use Wilcoxon Rank sum test to compare the cell abundance between the two groups
+```{r}
+wilcox_stat <- vector()
+for(i in 1:length(rownames(est_timer))) {
+temp <- wilcox.test(as.numeric(est_timer[i, c(1:10)]), as.numeric(est_timer[i, c(11:20)]))
+wilcox_stat[i] <- temp$p.value
+}
+names(wilcox_stat) <- rownames(est_timer)
+wilcox_stat
+```
+
+This test shows that the abundances of T cell CD8+, Neutrophil and Macrophage were significantly different between the two group.
+
+Now produce boxplots to illustrate the differences.
+```{r}
+boxplot(as.numeric(est_timer[3, c(1:10)]), as.numeric(est_timer[3, c(11:20)]), names=c("Tumour", "Normal"), ylab="T cell CD8+")
+
+boxplot(as.numeric(est_timer[4, c(1:10)]), as.numeric(est_timer[4, c(11:20)]), names=c("Tumour", "Normal"), ylab="Neutrophil")
+
+boxplot(as.numeric(est_timer[5, c(1:10)]), as.numeric(est_timer[5, c(11:20)]), names=c("Tumour", "Normal"), ylab="Macrophage")
+```
+
+5.3. plot estimate of B and CD8 T cells with the estimates of Decosus
+
+```{r}
+#est_quantiseq_df <- as.data.frame(est_quantiseq)
+#est_quantiseq <- est_quantiseq_df[,c(2:21)]
+#rownames(est_quantiseq) <- est_quantiseq_df[,1]
+
+est_B_quantiseq <- est_quantiseq[which(rownames(est_quantiseq) == "B cell"),]
+est_B_timer <- est_timer[which(rownames(est_timer) == "B cell"),]
+
+est_cd8T_quantiseq <- est_quantiseq[which(rownames(est_quantiseq) == "T cell CD8+"),]
+est_cd8T_timer <- est_timer[which(rownames(est_timer) == "T cell CD8+"),]
+```
+
+Plot correlation for B cell estimates
+```{r}
+plot(as.numeric(est_B_quantiseq), as.numeric(est_B_timer), xlab="B quantiseq", ylab="B Timer")
+plot(as.numeric(est_B_Decosus), as.numeric(est_B_quantiseq), xlab="B Decosus", ylab="B quantiseq")
+plot(as.numeric(est_B_Decosus), as.numeric(est_B_timer), xlab="B Decosus", ylab="B Timer")
+
+cor.test(as.numeric(est_B_quantiseq), as.numeric(est_B_timer))
+cor.test(as.numeric(est_B_Decosus), as.numeric(est_B_quantiseq))
+cor.test(as.numeric(est_B_Decosus), as.numeric(est_B_timer))
+```
+
+Plot correlation for T cell CD8+ estimates
+```{r}
+plot(as.numeric(est_cd8T_quantiseq), as.numeric(est_cd8T_timer), xlab="CD8+_T quantiseq", ylab="CD8+_T Timer")
+plot(as.numeric(est_cd8T_Decosus), as.numeric(est_cd8T_quantiseq), xlab="CD8+_T Decosus", ylab="CD8+_T quantiseq")
+plot(as.numeric(est_cd8T_Decosus), as.numeric(est_cd8T_timer), xlab="CD8+_T Decosus", ylab="CD8+_T Timer")
+
+cor.test(as.numeric(est_cd8T_quantiseq), as.numeric(est_cd8T_timer))
+cor.test(as.numeric(est_cd8T_Decosus), as.numeric(est_cd8T_quantiseq))
+cor.test(as.numeric(est_cd8T_Decosus), as.numeric(est_cd8T_timer))
+```
+
+
+6. Finally, in this section, let's learn how to use GSVA for single sample gene set enrichment analysis.
+
+6.1. Install GSVA and GSEABase r packages, also the limma package
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("GSVA")
+BiocManager::install("GSEABase")
+BiocManager::install("limma")
+```
+
+6.2. run GSVA to calculate gene set activities
+```{r}
+library(GSVA)
+library(GSEABase)
+
+#### Download the Msigdb gene set C2 V KEGG from qmplus page, or from Msigdb's own website (https://www.gsea-msigdb.org/gsea/msigdb)
+c2kegg <- getGmt("c2.cp.kegg.v2022.1.Hs.symbols.gmt", collectionType=BroadCollection(category="c2"), geneIdType=SymbolIdentifier())
+
+### now run gsva main function against c2kegg geneset to calculate kegg pathway activity for each sample
+brca_par <- gsvaParam(as.matrix(exp_data), c2kegg, minSize = 20, maxSize = 500)
+brca_es <- gsva(brca_par)
+```
+
+6.3. Now run limma to identify significantly dysregulated pathways between tumour and normal group
+```{r}
+library(limma)
+
+group <- c("Tumour","Tumour","Tumour","Tumour","Tumour","Tumour","Tumour","Tumour","Tumour","Tumour","Normal","Normal","Normal","Normal","Normal","Normal","Normal","Normal","Normal","Normal")
+
+mod <- model.matrix(~ 0+factor(group))
+colnames(mod) <- c("Normal", "Tumour")
+rownames(mod) <- colnames(exp_data)
+
+fit <- lmFit(brca_es, mod)
+cont.matrix <- makeContrasts(TumourvsNormal=Tumour-Normal, levels=mod)
+fit2 <- contrasts.fit(fit, cont.matrix)
+fit2 <- eBayes(fit2)
+topTable(fit2, adjust="BH")
+```
+
+6.4. Now produce vocalno plot for significantly dysregulated pathways
+```{r}
+tt <- topTable(fit2, adjust="BH", n=Inf)
+dim(tt)
+head(tt) ### tt contains the GSVA limma differential expression stats for all the KEGG pathways
+write.table(tt, file="GSVA_KEGG_tumourvsnormal.txt", quote=F, sep="\t", row.names=T)
+
+DEpwys <- rownames(tt)[tt$adj.P.Val <= 0.01]
+length(DEpwys)
+
+plot(tt$logFC, -log10(tt$P.Value), pch=".", cex=4, col=grey(0.75),
+     main="", xlab="GSVA enrichment score difference", ylab=expression(-log[10]~~Raw~P-value))
+abline(h=-log10(max(tt$P.Value[tt$adj.P.Val <= 0.01])), col=grey(0.5), lwd=1, lty=2)
+points(tt$logFC[match(DEpwys, rownames(tt))],
+       -log10(tt$P.Value[match(DEpwys, rownames(tt))]), pch=".", cex=5, col="darkred")
+text(max(tt$logFC)*0.85, -log10(max(tt$P.Value[tt$adj.P.Val <= 0.01])), "1% FDR", pos=3)
+```
+
+
+6.4. Now produce heatmap for significantly dysregulated pathways
+```{r}
+## Tumour/Normal labels (must match your sample order)
+group <- c(rep("Tumour", 10), rep("Normal", 10))
+
+## Extract GSVA values for significant pathways
+DEpwys_es <- brca_es[match(DEpwys, rownames(brca_es)), ]
+
+## Colour mapping
+colorLegend <- c(Tumour = "darkred", Normal = "darkblue")
+
+## Side colours for each sample (length = ncol(DEpwys_es))
+cancer_types_all.color <- unname(colorLegend[group])
+names(cancer_types_all.color) <- colnames(DEpwys_es)
+
+## Clustering
+sampleClustering <- hclust(as.dist(1 - cor(DEpwys_es, method = "spearman")), method = "complete")
+geneSetClustering <- hclust(as.dist(1 - cor(t(DEpwys_es), method = "pearson")), method = "complete")
+
+## Heatmap
+heatmap(
+  DEpwys_es,
+  ColSideColors = cancer_types_all.color,
+  xlab = "samples",
+  ylab = "Pathways",
+  margins = c(2, 20),
+  labCol = "",
+  scale = "row",
+  Colv = as.dendrogram(sampleClustering),
+  Rowv = as.dendrogram(geneSetClustering)
+)
+
+legend("topleft", legend = names(colorLegend), fill = colorLegend, inset = 0.01, bg = "white")
+
+```
+
+
+This is the end of the practical!!!! Well done to you all!!!
+

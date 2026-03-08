@@ -1,0 +1,27 @@
+---
+title: "Installing immunedeconv package for practical 6"
+output: html_notebook
+---
+These packages have more recent versions available.
+It is recommended to update all of them.
+Which would you like to update?
+
+1: All                                               
+2: CRAN packages only                                
+3: None                                              
+4: MCPcounter (b6eac73e9... -> 7ea6e040a...) [GitHub]
+5: rlang      (1.1.4        -> 1.1.5       ) [CRAN]  
+6: curl       (6.1.0        -> 6.2.0       ) [CRAN]  
+
+
+###>> enter 3 if you receive above message for all installation
+
+```{r}
+install.packages(c("devtools","curl")) ##Installs devtools and the MCPcounter dependancy 'curl'
+library(devtools)
+devtools::install_github("ebecht/MCPcounter",ref="master", subdir="Source")
+devtools::install_github("cansysbio/ConsensusTME")
+devtools::install_github("omnideconv/immunedeconv")
+```
+
+

@@ -1,0 +1,160 @@
+---
+title: "mclust_practice by Prof Jun Wang at Barts Cancer Institute"
+output: html_document
+date: "2026-01-12"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+1. Install mclust R package.
+```{r}
+install.packages("mclust")
+```
+
+
+2. Read in snv tab deliminated VCF file, with read depth information extractd. And variant allele frequency for each mutation is calculated.
+In this practical, we use "LU-14.snv.txt" and "LU-6.snv.txt" provided in practical folder for practice. In this file, you can see the read counts for alternative and reference alleles are provided. VAF would be "alternative allele count / (alternative allele count + reference allele count)"
+```{r}
+library(mclust)
+
+data1 <- read.delim("LU-14.snv.txt", header=T)
+dim(data1)
+head(data1)
+
+### now we calcuate VAF variant allele frequency, as "alternative allele count / (alternative allele count + reference allele count)"
+vaf1 <- data1$t_alt_count / (data1$t_alt_count + data1$t_ref_count)
+data1$vaf <- vaf1
+```
+
+3. run mclust analysis, and determine the best likelihood of clusters, and estimate the mean of each cluster
+
+```{r}
+## first lets simply look at how the VAF values are distributed using histogram. The high peak of the distribution with the largest data points often indicates where the major clone (cluster) is, and the mean VAF value of that major clone indicates the VAF of that clone
+hist(data1$vaf)
+
+## run the density mclust analysis on VAF values
+## Density estimation via Gaussian finite mixture modeling
+mod1 <- densityMclust(data1$vaf)
+summary(mod1)
+plot(mod1, what = "BIC")
+plot(mod1, what = "density", data = data1$vaf)
+plot(mod1, what = "diagnostic", type = "cdf")
+plot(mod1, what = "diagnostic", type = "qq")
+
+
+### Dimension reduction for model-based clustering and classification 
+### The best number of density cluster can then be estimated based on the Gaussian finite mixture modeling
+mod1dr <- MclustDR(mod1)
+summary(mod1dr)
+plot(mod1, what = "density", data = data1$vaf, breaks=50)
+plot(mod1dr, what="classification")
+plot(mod1dr, what="density")
+plot(mod1dr, what="evalues")
+```
+
+4. Further manipulate the data of cluster classification.  
+
+```{r}
+mod1dr
+
+### determine the cluster membership for each SNV
+mod1dr$classification
+mod1dr$class2mixcomp
+summary(mod1dr)
+### determine the mean value of each cluster according the multi-mixture module, thus the best VAF estimate of each cluster
+mod1dr$mu
+
+data1$classification <- mod1dr$classification
+```
+
+
+```{r make-clusters}
+# data1 must already exist before this
+data1_c1 <- data1[data1$classification == 1, ]
+data1_c2 <- data1[data1$classification == 2, ]
+data1_c3 <- data1[data1$classification == 3, ]
+data1_c4 <- data1[data1$classification == 4, ]
+
+```
+
+
+
+5. Further test and validate the cluster estimates
+```{r}
+hist(data1_c1$vaf)
+mean(data1_c1$vaf)
+median(data1_c1$vaf)
+
+hist(data1_c2$vaf)
+mean(data1_c2$vaf)
+median(data1_c2$vaf)
+
+hist(data1_c3$vaf)
+mean(data1_c3$vaf)
+median(data1_c3$vaf)
+
+if (nrow(data1_c4) > 0) {
+  hist(data1_c4$vaf)
+  mean(data1_c4$vaf, na.rm = TRUE)
+  median(data1_c4$vaf, na.rm = TRUE)
+} else {
+  message("Cluster 4 is empty (no variants classified as 4). Skipping plots/stats.")
+}
+
+
+
+```
+
+
+6. Read and analyse two related samples with their VAFs of shared mutations together, i.e. cluster two columns at the same time. This usually happens when we analyse two samples sampled from different part of the tumour, or sequential samples of different time points, i.e. diagnosis primary and relapse, or metastasis.
+
+```{r}
+data2 <- read.table("mutations_SP4_tLN_tSkin_together.txt", header=T, sep="\t")
+data2_vaf <- data.frame(data2$VAF_tLN, data2$VAF_tSkin)
+
+### first lets simply look at how the VAFs from tLN and VAFs from tSkin are correlated by using scatter plot
+plot(data2$VAF_tLN, data2$VAF_tSkin)
+
+### determine Bayesian Information Criterion (BIC) for the clustering performance
+BIC <- mclustBIC(data2_vaf)
+plot(BIC)
+
+summary(BIC)
+
+mod2 <- Mclust(data2_vaf, x = BIC)
+summary(mod2, parameters = TRUE)
+
+###table(class, mod2$classification)
+
+### Dimension reduction for model-based clustering and classification
+mod2dr <- MclustDR(mod2)
+summary(mod2dr)
+
+### plot the derived number of clusters as scatter plot with different colours for individual clusters
+plot(mod2, what = "classification")
+
+
+### Further manipulate the data and identify cluster membership for each mutation, and determine the mean VAFs for each cluster between the two correlated samples
+
+### determine the cluster membership for each SNV
+mod2dr$classification
+mod2dr$class2mixcomp
+summary(mod2dr)
+### determine the mean value of each cluster according the multi-mixture module, thus the best VAF estimate of each cluster
+mod2dr$mu
+
+data2$classification <- mod2dr$classification
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

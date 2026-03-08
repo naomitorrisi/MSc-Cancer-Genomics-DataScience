@@ -1,0 +1,462 @@
+---
+title: "NAOMI_TORRISI_PROTEOMICS_OMICS_CW"
+author: "Naomi Torrisi"
+date: "2025-12-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# 4.	Proteomics analysis (18 points)
+
+You will find the required the two dataset files, “Dataset1 for assingment phospho xxxx.csv”, “Dataset2 for assingment phospho xxxx.csv” in QMplus page, under the coursework assignment tab within the “Data needed for the assignment” folder.
+
+You are asked to analyse two phosphoproteomics datasets. Dataset 1 is from cells treated with an inhibitor of LSD1 named (GSK2879552) for 5 days followed by treatment with a kinase inhibitor named trametinib. Dataset 2 is the control dataset, where cells were treated with vehicle for 5 days followed by treatment with the same kinase inhibitor as in Dataset 1. 
+
+Next, differential phosphosite analysis was performed using limma to identify phosphosites significantly altered by trametinib treatment within each dataset. Limma was chosen because it is robust for replicated high-dimensional data and provides reliable estimates of differential phosphorylation. Significant phosphosites were identified using an FDR threshold of 0.05, and results were summarised in tables and visualised using volcano plots, which display both the magnitude and statistical significance of phosphorylation changes.
+
+For each dataset:
+# 1)	Perform differential phosphosite analysis by Limma, e.g., in Dataset1, two groups were listed in the column names, i.e., “GSK.Trametinib” and “GSK.DMSO” groups; In Dataset2, two groups were listed in the column names, “DMSO.Trametinib” and “DMSO.DMSO”.
+
+### Load required packages
+
+
+```{r}
+if (!require("BiocManager", quietly = TRUE)){
+  install.packages("BiocManager")
+  }
+
+if (!require("limma", quietly = TRUE)){
+  BiocManager::install("limma")
+}
+if (!require("devtools")){
+  install.packages("devtools")
+  }
+if (!require("protools2", quietly = TRUE)){
+  install_github("CutillasLab/protools2")
+}
+```
+
+
+### Dataset 1
+
+To identify phosphosites that were altered by trametinib in LSD1i-pretreated cells, I performed a differential phosphosite analysis using limma. The samples labelled “GSK.DMSO” were used as the control group, and the samples labelled “GSK.Trametinib” were used as the treatment group. This allowed me to quantify which phosphosites significantly increased or decreased following trametinib exposure in Dataset 1.
+
+To investigate how trametinib affects phosphorylation and kinase activity under different pretreatment conditions, two phosphoproteomics datasets were analysed: Dataset 1 (LSD1 inhibitor–pretreated cells) and Dataset 2 (control-pretreated cells).
+
+First, raw phosphoproteomics intensities were log₂-transformed and normalised. Log transformation was applied to stabilise variance and reduce the influence of extreme values, while centring ensured that samples were directly comparable. Boxplots before and after normalisation were used to confirm that sample distributions became aligned, indicating successful normalisation and suitability for downstream statistical analysis.
+
+```{r}
+library(limma)
+library(protools2)
+library(ggplot2)
+
+# Open file
+df.phosphoprot_1 <- read.csv(
+  "Dataset 1 for assingment phospho of LSD1i pretreated cells followwed by trametinib treatment.csv"
+)
+
+# View the file
+head(df.phosphoprot_1)
+
+# Data distribution before normalisation
+boxplot(df.phosphoprot_1[,2:ncol(df.phosphoprot_1)],
+        las = 3,
+        main = "Data distribution before normalization")
+df.phosphoprot_1 <- data.frame(df.phosphoprot_1)
+
+
+# Log2 transform and normalise data by centering without scaling
+df.norm_1 <- data.frame(
+  sites = df.phosphoprot_1$sites,
+  scale(log2(df.phosphoprot_1[, 2:ncol(df.phosphoprot_1)]), scale = FALSE)
+)
+
+# Data distribution after normaliation
+boxplot(df.norm_1[,2:ncol(df.norm_1)],
+        las = 3,
+        main = "Data distribution after Log transformation and normalization")
+
+# Statistical analysis
+control_samples_1 <- colnames(df.phosphoprot_1[, 2:7])
+test_samples_1 <- colnames(df.phosphoprot_1[, 8:13])
+
+# Analyse by Limma
+df.limma.results_1 <- protools2::compare.by.limma(
+  df.to.compare   = df.norm_1,
+  control.samples = control_samples_1,
+  test.samples    = test_samples_1
+)
+
+# Save Limma results
+write.csv(
+  df.limma.results_1,
+  "Results_Dataset1_LSD1i_phospho_limma.csv",
+  row.names = FALSE
+)
+
+# View significant differences
+# View top most significant hits
+head(df.limma.results_1[
+  order(df.limma.results_1$difference.test.vs.control),
+])
+
+# Select significant hits
+df.significant_1 <- subset(df.limma.results_1, FDR < 0.05)
+df.significant.decreased_1 <- subset(
+  df.significant_1,
+  difference.test.vs.control < 0
+)
+df.significant.increased_1 <- subset(
+  df.significant_1,
+  difference.test.vs.control > 0
+)
+
+nrow(df.significant.decreased_1)
+nrow(df.significant.increased_1)
+
+```
+
+
+### Visualise dataset1 differential phosphosite analysis as a volcano plot
+
+```{r}
+library(ggplot2)
+
+pplot_1 <- ggplot(
+  df.limma.results_1,
+  aes(x = difference.test.vs.control, y = -log10(FDR))
+) +
+  geom_point() +
+  geom_point(
+    data = df.significant.decreased_1,
+    aes(x = difference.test.vs.control, y = -log10(FDR)),
+    color = "blue"
+  ) +
+  geom_point(
+    data = df.significant.increased_1,
+    aes(x = difference.test.vs.control, y = -log10(FDR)),
+    color = "red"
+  ) +
+  labs(
+    x = "Diff. treatment vs control",
+    title = "Phosphoproteomics of LSD1i-pretreated cells treated with trametinib"
+  )
+
+pplot_1
+```
+
+
+Before normalisation, the phosphoproteomics data show a lot of variation between samples, with large differences in signal intensity and a strongly skewed distribution. After applying log2 transformation and centring normalisation, the sample distributions become much more similar, with aligned medians and comparable spread across all replicates. This shows that the normalisation step successfully reduced technical variability and made the samples more comparable for downstream analysis.
+
+Limma analysis shows a clear effect of trametinib treatment in LSD1 inhibitor–pretreated cells. In total, 78 phosphosites are significantly reduced, while only 4 phosphosites show a significant increase (FDR < 0.05). Many of the strongest changes involve large decreases in phosphorylation and very low FDR values, including sites linked to MAPK pathway proteins. This pattern is consistent with trametinib acting as a kinase inhibitor.
+
+The volcano plot makes this trend easy to see. Most of the significant phosphosites fall on the negative side of the plot, showing widespread decreases in phosphorylation after treatment, while very few sites increase. Overall, these results indicate that trametinib causes broad suppression of phosphorylation in cells that have been pretreated with an LSD1 inhibitor.
+
+### Dataset 2
+
+```{r}
+# Open file
+df.phosphoprot_2 <- read.csv(
+  "Dataset 2 for assingment phospho of control pretreated cells followwed by trametinib treatment.csv"
+)
+
+# View the file
+head(df.phosphoprot_2)
+
+# Data distribution before normalisation
+boxplot(df.phosphoprot_2[,2:ncol(df.phosphoprot_2)],
+        las = 3,
+        main = "Data distribution before normalisation")
+
+# Log2 transformation and normalisation
+df.phosphoprot_2 <- data.frame(df.phosphoprot_2)
+
+df.norm_2 <- data.frame(
+  sites = df.phosphoprot_2$sites,
+  scale(log2(df.phosphoprot_2[,2:ncol(df.phosphoprot_2)]), scale = FALSE)
+)
+# Data distribution after normalisation
+boxplot(df.norm_2[,2:ncol(df.norm_2)],
+        las = 3,
+        main = "Data distribution after Log transformation and normalisation")
+
+# Statistical analysis using Limma - 
+## Differential phosphosite analysis was performed using Limma, comparing trametinib-treated samples against DMSO controls.
+# Define control and test samples
+control_samples_2 <- grep("DMSO\\.DMSO", colnames(df.norm_2), value = TRUE)
+test_samples_2    <- grep("DMSO\\.Trametinib", colnames(df.norm_2), value = TRUE)
+
+df.limma.results_2 <- protools2::compare.by.limma(
+  df.to.compare   = df.norm_2,
+  control.samples = control_samples_2,
+  test.samples    = test_samples_2
+)
+
+# Save Limma results
+write.csv(df.limma.results_2,
+          "Results_Dataset2_control_phospho_limma.csv",
+          row.names = FALSE)
+# View significant differences
+# View the top most significant hits
+head(df.limma.results_2[
+  order(df.limma.results_2$difference.test.vs.control),
+])
+
+# Select significant hits
+df.significant_2 <- subset(df.limma.results_2, FDR < 0.05)
+df.significant.decreased_2 <- subset(
+  df.significant_2,
+  difference.test.vs.control < 0
+)
+df.significant.increased_2 <- subset(
+  df.significant_2,
+  difference.test.vs.control > 0
+)
+
+nrow(df.significant.decreased_2)
+nrow(df.significant.increased_2)
+
+```
+
+### visualise dataset2 with volcano plot
+
+```{r}
+library(ggplot2)
+
+pplot_2 <- ggplot(df.limma.results_2,
+                  aes(x = difference.test.vs.control,
+                      y = -log10(FDR))) +
+  geom_point() +
+  geom_point(data = df.significant.decreased_2,
+             aes(x = difference.test.vs.control,
+                 y = -log10(FDR)),
+             color = "blue") +
+  geom_point(data = df.significant.increased_2,
+             aes(x = difference.test.vs.control,
+                 y = -log10(FDR)),
+             color = "red") +
+  labs(x = "Diff. treatment vs control",
+       title = "Phosphoproteomics of control-pretreated cells treated with trametinib")
+
+pplot_2
+
+```
+
+Before normalisation, the phosphoproteomics intensities show a very wide spread between samples, with strongly skewed distributions and clear differences in overall signal levels across replicates (as seen in the “before normalisation” boxplot). After applying log2 transformation and centring normalisation, the sample distributions become much more comparable: the medians line up and the overall spread across samples is more consistent. This suggests the normalisation step worked as intended, reducing technical variation so that differences seen later are more likely to reflect true biological effects rather than sample-to-sample intensity shifts.
+
+Using the normalised data, Limma differential phosphosite analysis (trametinib vs DMSO) shows a strong treatment effect in Dataset 2. In total, 288 phosphosites are significantly decreased, while 48 phosphosites are significantly increased (FDR < 0.05). The strongest hits in the results table show very large negative fold changes and extremely small FDR values, including several MAPK-related phosphosites, which fits with trametinib’s role as a MAPK/MEK pathway inhibitor.
+
+The volcano plot supports this pattern visually. There is a clear enrichment of significant points on the left-hand side of the plot, showing that most significant changes correspond to decreases in phosphorylation. A smaller number of significant increases are present on the right, but they are noticeably fewer than the decreases. Overall, the combined boxplots, differential analysis counts, and volcano plot all point to the same conclusion: trametinib causes widespread suppression of phosphorylation in control-pretreated cells, with many more phosphosites decreasing than increasing.
+
+# 2)	Use KSEA to determine the kinase(s) differentially activated or deactivated by trametinib
+
+To move beyond individual phosphosites and infer upstream signalling changes, Kinase Substrate Enrichment Analysis (KSEA) was applied to the limma results. KSEA aggregates phosphorylation changes across known kinase substrates to estimate changes in kinase activity, allowing pathway-level interpretation. The output was examined using ranked tables of kinases and KSEA volcano plots, highlighting kinases that were significantly activated or deactivated by trametinib.
+
+Finally, kinase activity patterns were compared between Dataset 1 and Dataset 2 to assess how LSD1 inhibition modifies the cellular response to trametinib. This integrative approach enabled both site-level and kinase-level interpretation of signalling changes.
+```{r}
+#### KSEA – Dataset 1: LSD1i pretreated cells + trametinib ####
+# Read Dataset 1 limma results
+df1 <- read.csv("Results_Dataset1_LSD1i_phospho_limma.csv")
+
+# Run KSEA
+df1.ksea <- protools2::kinase.substrate.enrichment(dfx = df1, ks_db = "pdts")
+
+# View top kinases
+df1.ksea[order(df1.ksea$pvalue), ]
+
+
+#### KSEA – Dataset 2: control pretreated cells + trametinib ####
+# Read Dataset 2 limma results
+df2 <- read.csv("Results_Dataset2_control_phospho_limma.csv")  # make sure name matches your file
+
+# Run KSEA
+df2.ksea <- protools2::kinase.substrate.enrichment(dfx = df2, ks_db = "pdts")
+
+# View top kinases
+df2.ksea[order(df2.ksea$pvalue), ]
+
+
+```
+
+# 3)	Visualise the results using appropriate tables and plots
+
+To visualise the kinase activity changes inferred by KSEA, I plotted the z-scores against –log10(q-value) in volcano plots for each dataset. In these plots, each point represents a kinase, with its position reflecting both the strength (z-score) and significance (q-value) of its activity change following trametinib treatment. Labelling the kinases with q < 0.01 highlights the most strongly affected kinases in LSD1i-pretreated versus control-pretreated cells.
+
+
+```{r}
+##### KSEA analysis and visualisation #####
+library(ggplot2)
+library(protools2)
+
+##### Dataset 1: LSD1i pretreated cells + trametinib #####
+
+# Use Limma results from Dataset 1
+df1 <- df.limma.results_1
+
+# Run KSEA
+df1.ksea <- protools2::kinase.substrate.enrichment(dfx = df1, ks_db = "pdts")
+
+# View top kinases
+df1.ksea[order(df1.ksea$pvalues), ]
+
+# Select significant kinases
+k.selected_1 <- subset(df1.ksea, pvalues < 0.01)
+
+# KSEA volcano plot
+plot.ksea.volcano_1 <- ggplot(df1.ksea,
+                              aes(x = zscores, y = -log10(qvalue))) +
+  geom_point(aes(size = m)) +
+  geom_text(data = k.selected_1,
+            aes(label = kinases),
+            hjust = -0.2) +
+  labs(title = "KSEA of trametinib-treated cells (Dataset 1: LSD1i pretreated)")
+
+plot.ksea.volcano_1
+
+
+##### Dataset 2: control pretreated cells + trametinib #####
+
+# Use Limma results from Dataset 2
+df2 <- df.limma.results_2
+
+# Run KSEA
+df2.ksea <- protools2::kinase.substrate.enrichment(dfx = df2, ks_db = "pdts")
+
+# View top kinases
+df2.ksea[order(df2.ksea$pvalues), ]
+
+# Select significant kinases
+k.selected_2 <- subset(df2.ksea, pvalues < 0.01)
+
+# KSEA volcano plot
+plot.ksea.volcano_2 <- ggplot(df2.ksea,
+                              aes(x = zscores, y = -log10(qvalue))) +
+  geom_point(aes(size = m)) +
+  geom_text(data = k.selected_2,
+            aes(label = kinases),
+            hjust = -0.2) +
+  labs(title = "KSEA of trametinib-treated cells (Dataset 2: control pretreated)")
+
+plot.ksea.volcano_2
+
+
+```
+
+### Results interpretation
+
+Dataset 1 (LSD1i pretreated + trametinib)
+
+In LSD1i-pretreated cells, KSEA shows strong suppression of the MAPK pathway, with MAP2K1 having a clear negative z-score, and MAPK1/MAPK3 also reduced. This is consistent with trametinib acting as a MEK inhibitor upstream of ERK signalling. At the same time, several kinases show positive z-scores with strong significance (low p-values), including IRAK1, ERN1, CIT, CAMKK2, and TAOK3, suggesting compensatory signalling and broader kinase rewiring when LSD1 inhibition is combined with MEK inhibition.
+
+Dataset 2 (control pretreated + trametinib)
+
+In control-pretreated cells, the most significant decreases include PRKCI and LATS1 (negative z-scores with low p-values), with MAP2K1 also showing decreased activity but not dominating the top hits in the same way as Dataset 1. On the activation side, CDK9 shows a significant positive z-score, with PIK3CA showing more modest activation. Overall, the response appears more selective, with fewer strongly shifted kinases compared with the LSD1i-pretreated condition.
+
+Comparison
+
+Overall, LSD1 inhibition appears to amplify and diversify the kinase response to trametinib: Dataset 1 shows stronger MAPK suppression alongside multiple significant compensatory activations, whereas Dataset 2 shows a narrower set of significant changes (notably PRKCI/LATS1 decreases and CDK9 activation).
+
+# 1)	Name the top 10 phosphorylation sites decreased and increased by the kinase inhibitor in each dataset 
+
+To answer this question, I used the limma results to find which phosphosites changed the most after trametinib treatment. I separated the significantly altered sites into those that decreased and those that increased, and then ranked them by their fold-change values. Below, I extract the top 10 decreased and top 10 increased phosphosites for each dataset so we can see the strongest responses to the kinase inhibitor.
+
+```{r}
+## Dataset 1 - top 10 decreased
+head(df.significant.decreased_1[order(df.significant.decreased_1$difference.test.vs.control), ], 10)
+```
+
+```{r}
+## Dataset 1 - top 10 increased
+head(df.significant.increased_1[order(-df.significant.increased_1$difference.test.vs.control), ], 10)
+
+```
+
+Only 4/10 were significant at FDR < 0.05.
+
+```{r}
+## Dataset 2 - top 10 decreased
+head(df.significant.decreased_2[order(df.significant.decreased_2$difference.test.vs.control), ], 10)
+```
+
+
+```{r}
+## Dataset 2 - top 10 increased
+head(df.significant.increased_2[order(-df.significant.increased_2$difference.test.vs.control), ], 10)
+```
+
+
+# 2)	Name the top kinases increased by treatment in each dataset
+
+### Dataset 1:
+
+In Dataset 1, several kinases show positive z-scores, meaning their activity appears to increase following trametinib treatment. After ranking them by p-value, the strongest hits are those with the most statistically confident increases in activity. These kinases likely reflect compensatory signalling that becomes upregulated when MEK/MAPK signalling is blocked in cells pretreated with the LSD1 inhibitor.
+
+```{r}
+# Dataset 1: Identify increased kinases 
+df1.ksea.increased  <- df1.ksea[df1.ksea$zscores > 0, ]
+# Sort by significance (p-value)
+df1.ksea.increased  <- df1.ksea.increased[order(df1.ksea.increased$pvalues), ]
+# View top 10 of each
+head(df1.ksea.increased, 10)
+```
+
+
+
+
+### Dataset 2:
+
+For Dataset 2, I pulled out the kinases that showed positive z-scores, which means their activity appears to increase after trametinib treatment. I then sorted them by p-value so the most statistically reliable changes rise to the top. The output below shows the top 10 kinases that seem to be activated in the control cells after trametinib exposure, giving a quick snapshot of how these cells try to adapt when the MAPK pathway is blocked.
+
+```{r}
+# Dataset 2: Identify increased kinases
+df2.ksea.increased  <- df2.ksea[df2.ksea$zscores > 0, ]
+# Sort by p-value
+df2.ksea.increased  <- df2.ksea.increased[order(df2.ksea.increased$pvalues), ]
+# View top 10
+head(df2.ksea.increased, 10)
+```
+
+
+# 3)	Name the top kinases decreased by treatment in each dataset
+
+### Dataset 1:
+
+For Dataset 1, which includes the cells pretreated with the LSD1 inhibitor, I pulled out the kinases with the most negative z-scores to see which activities were most strongly suppressed by trametinib.
+
+```{r}
+# Dataset 1: Identify decreased kinases
+df1.ksea.decreased  <- df1.ksea[df1.ksea$zscores < 0, ]
+# Sort by significance (p-value)
+df1.ksea.decreased  <- df1.ksea.decreased[order(df1.ksea.decreased$pvalues), ]
+# View top 10 of each
+head(df1.ksea.decreased, 10)
+```
+
+
+### Dataset 2:
+
+In Dataset 2, the kinases with negative z-scores are simply the ones whose activity goes down after trametinib in the control-pretreated cells. Once we sort them by p-value, it becomes clear which decreases are the most reliable. This basically shows us how trametinib on its own shuts down key signalling pathways, without any influence from LSD1 inhibition.
+
+```{r}
+# Dataset 2: Identify decreased kinases
+df2.ksea.decreased  <- df2.ksea[df2.ksea$zscores < 0, ]
+# Sort by p-value
+df2.ksea.decreased  <- df2.ksea.decreased[order(df2.ksea.decreased$pvalues), ]
+# View top 10
+head(df2.ksea.decreased, 10)
+```
+
+
+# 4)	What impact did the pre-treatment with the LSD1 inhibitor had in the effect of trametinib in decreasing kinase activities?
+
+Pre-treatment with the LSD1 inhibitor alters how kinase activities are decreased by trametinib, as revealed by differences in the KSEA profiles between Dataset 1 (LSD1i-pretreated) and Dataset 2 (control-pretreated).
+
+In LSD1 inhibitor–pretreated cells (Dataset 1), trametinib leads to strong suppression of core MAPK pathway kinases. The most strongly decreased kinase is MAP2K1, which shows the largest negative z-score and the lowest p-value among all kinases. Downstream MAPK components MAPK1 and MAPK3 are also decreased, alongside additional kinases such as TNK2. This pattern indicates that LSD1 inhibition enhances the effectiveness of trametinib in suppressing its canonical MAPK signalling targets.
+
+In contrast, in control-pretreated cells (Dataset 2), the pattern of kinase inhibition is less centred on the MAPK pathway. While MAP2K1 is still decreased, the strongest reductions are observed for kinases such as PRKCI and LATS1, which display large negative z-scores and low p-values. MAPK1 and MAPK3 are not among the most strongly suppressed kinases in this dataset, indicating that trametinib alone produces a broader and less MAPK-focused inhibition profile.
+
+Overall, comparison of the two datasets shows that LSD1 inhibition shifts trametinib-induced kinase suppression toward stronger and more direct inhibition of MAPK signalling. Without LSD1 pre-treatment, trametinib still decreases kinase activity, but the response is redistributed across alternative pathways rather than being dominated by MAPK components.

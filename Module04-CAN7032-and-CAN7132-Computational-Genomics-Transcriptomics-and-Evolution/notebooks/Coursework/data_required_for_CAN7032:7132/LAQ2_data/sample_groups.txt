@@ -1,0 +1,11 @@
+Sample	Group	Patient
+S02_Normal	Normal	S02
+S03_Normal	Normal	S03
+S05_Normal	Normal	S05
+S06_Normal	Normal	S06
+S10_Normal	Normal	S10
+S02_Tumour	Tumour	S02
+S03_Tumour	Tumour	S03
+S05_Tumour	Tumour	S05
+S06_Tumour	Tumour	S06
+S10_Tumour	Tumour	S10

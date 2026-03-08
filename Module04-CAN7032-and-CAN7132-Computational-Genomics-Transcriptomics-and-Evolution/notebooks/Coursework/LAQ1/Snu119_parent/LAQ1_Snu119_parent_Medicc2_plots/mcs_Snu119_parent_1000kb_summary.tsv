@@ -1,0 +1,8 @@
+nsamples	15
+normal_name	diploid
+tree_length	737.0
+mean_branch_length	27.296296296296298
+median_branch_length	20.0
+min_branch_length	5.0
+max_branch_length	96.0
+wgd_status	unknown (run with --events flag to detect WGDs)
