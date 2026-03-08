@@ -1,0 +1,295 @@
+---
+title: "NAOMI_TORRISI_RNA_SEQ_OMICS_CW"
+author: "Naomi Torrisi"
+date: "2025-12-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# 2.	RNA-seq analysis (19 points)
+
+In the CAN7031 QMplus page “https://qmplus.qmul.ac.uk/course/view.php?id=24809”, under the coursework assignment tab within the “Data needed for the assignment” folder, you will see a raw count file “row_count_data.nodup.txt”, and the sample group file “sample_groups.txt”. Note that the normal and tumour samples are matched normal and tumour samples from 5 patients, S02, S03, S05, S06 and S10. 
+
+Use the workflow you learnt from the RNA-seq lecture/practical to analyse this data, including gene filtering (filtering out genes that were expressed in a low level across samples), normalisation and differential expression between tumour and normal groups. 
+
+Note that here you need to do pair sample analysis, as normal and tumour samples were matched from the same patients, you need to use a multi-factor design which includes the sample information as a term in the design formula. Depending on the packages you use (e.g., DEseq2 or limma), look into their model.matrix design. Here we are only interested in the results comparing tumour versus normal groups, but accounting for the patient differences.
+
+### Loading the count data and sample metadata
+
+```{r}
+# Install the latest version of DEseq2 in console
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+     #install.packages("BiocManager")
+#BiocManager::install(c("DESeq2", "EnhancedVolcano", "AnnotationDbi", "org.Hs.eg.db"))
+
+#install.packages("pheatmap")
+
+# load the libraries
+library(DESeq2)
+library(pheatmap)
+library(EnhancedVolcano)
+library(AnnotationDbi)
+library(org.Hs.eg.db)
+library(pheatmap)
+```
+
+### Loading Input files and creating DESeq2 object
+
+```{r}
+# Read in the raw read counts
+rawCounts <- read.delim("/Users/naomi/Downloads/row_count_data.nodup.txt", header = T, row.names = 1)
+rawCounts <- ceiling(rawCounts) # rsem expected_counts are float numbers , we need to round them up to integers for DESeq2
+head(rawCounts)
+
+# Read in the sample mappings
+sampleData <- read.delim("/Users/naomi/Downloads/sample_groups.txt", header = T)
+head(sampleData)
+
+
+# Create the DEseq2DataSet object
+dds <- DESeqDataSetFromMatrix(countData = rawCounts,
+                              colData = sampleData,
+                              design = ~ Patient + Group) # included Patient in the DESeq2 design so that tumour vs normal comparisons are made within each patient, correcting for the fact that every person has unique baseline gene expression
+
+dds
+```
+
+
+### Filtering out low counts genes
+```{r}
+#a popular filter is to ensure at least X samples with a count of 10 or more, where X can be chosen as the sample size of the smallest group of samples
+
+keep <- rowSums(counts(dds) >= 10) >= 3
+dds <- dds[keep,]
+
+dds
+```
+
+## Run DESeq
+```{r}
+dds <- DESeq(dds)
+```
+
+## Extracting normalised counts and vsd transformed counts
+```{r}
+norm.counts <- counts(dds, normalized=TRUE)
+write.csv(norm.counts, file="normalised_counts_tumour_v_normal.csv", row.names=TRUE)
+head(norm.counts)
+
+
+vsd <- vst(dds, blind=FALSE)
+head(assay(vsd),3)
+```
+
+
+### Unsupervised clustering
+ 
+To visualise the similarity between patients , I performed hierarchical clustering using VST-normalised expression values. This gives an umbiased view of how samples naturally group together based on their gene expression profiles.
+
+```{r}
+#plotting hierarchical clustering using vst transformed counts
+sampleDists <- dist(t(assay(vsd)))
+plot(hclust(sampleDists, method = "complete"))
+```
+
+The dendrogram shows that most samples cluster by patient and then separate into tumour vs normal branches, which is what we'd expect for paired data. However, S06_Tumour sits noticeably apart from the rest, indicating that its expression profile is more distinct. This could reflect greater transcriptional divergence in this particular tumour sample, or simply stronger inter-patient variation for patient S06 compared to the others.
+
+### Get results of differential expression analysis
+```{r}
+# Get results differential expression 
+res <- results(dds, contrast=c("Group", "Tumour", "Normal"))
+
+# View summary of results
+summary(res)
+head(res)
+mcols(res)$description
+
+#Exporting results to csv
+write.csv(as.data.frame(res), file="./DE_Tumour_vs_Normal_results.csv")
+```
+Raw gene‐level count data (row_count_data.nodup.txt) and sample metadata (sample_groups.txt) were imported into R and combined into a DESeq2 object. Lowly expressed genes were removed by keeping only genes with ≥10 counts in at least 3 samples. Differential expression was then performed with DESeq2 using a multi-factor design ~ Patient + Group, so that tumour–normal differences were tested while adjusting for inter-patient variation. DESeq2’s internal pipeline (size–factor normalisation, dispersion estimation and negative binomial GLM fitting) was run via DESeq(dds), and results were extracted for the contrast Tumour vs Normal with Benjamini–Hochberg–adjusted p-values. Genes with an adjusted p-value < 0.05 (and optionally |log2FC| > 1) were considered significantly differentially expressed and were used for downstream visualisation and pathway analysis.
+
+## Now answer the following questions:
+
+# 1)	Output the R workflow you use for the analysis from raw data to generating differential expression results. (6 points)
+
+1. Obtain raw sequencing reads
+RNA-seq experiments typically begin with paired FASTQ files containing the raw reads generated by Illumina sequencing.
+
+2. Quality assessment
+Read quality is usually evaluated with a tool such as FastQC to check for adaptor contamination, sequence quality issues, and other technical artefacts.
+
+3. Read trimming
+Low-quality bases and adaptor sequences are commonly removed using trimming software (e.g., Trim Galore!), producing cleaned FASTQ files suitable for alignment.
+
+4. Genome alignment
+The trimmed reads are aligned to a reference genome (e.g., GRCh38) using a splice-aware aligner such as STAR, generating coordinate-sorted BAM files.
+
+5. Gene-level quantification
+Aligned reads are quantified into gene-level counts using a tool such as RSEM, producing expected count tables for each sample.
+
+6. Constructing the count matrix
+The gene-level count files from all samples are merged into a single matrix for downstream statistical analysis.
+
+7. Differential expression analysis
+The count matrix and sample metadata are imported into DESeq2, which performs gene filtering, normalisation, dispersion estimation, and statistical testing.
+For matched tumour–normal designs, a paired model (e.g., ~ Patient + Group) is used to ensure that differences are tested within each patient.
+
+# 2)	Generate a boxplot of normalised gene expression across the 10 samples (e.g., boxplot (your normalised matrix), one plot with all 10 boxplots together, each representing one sample), and a PCA or MDS plot of the 10 samples together. (3 points)
+
+### Boxplot (VST-Normalised)
+
+```{r}
+vsd <- vst(dds, blind = FALSE)
+vsd.mat <- assay(vsd)
+
+par(mar = c(10,4,4,1))
+boxplot(vsd.mat,
+        las = 2,
+        outline = FALSE,
+        ylab = "VST-normalised expression",
+        main = "Normalised gene expression across samples")
+
+```
+
+
+### PCA plot using VST-transformed counts
+
+```{r}
+#plotting PCA using the vst transformed counts
+plotPCA(vsd, intgroup=c("Group"))
+```
+
+To look at how similar the samples were after normalisation, I made a boxplot using the VST-transformed counts. All 10 samples showed almost the same overall expression range, which reassured me that the normalisation step worked properly and that none of the samples looked like technical outliers.
+
+I then ran a PCA on the VST data to see how the samples group together. The tumour and normal samples started to separate from each other, while samples from the same patient remained close, which makes sense because they’re paired. This also shows why using a paired design in the differential expression analysis is important.
+
+# 3)	List the top 10 mostly differentially expressed genes (based on adjusted p-values) between tumour and normal groups, with all their differential expression analysis statistics listed in one table. (3 points)
+
+
+
+```{r}
+## Convert DSeq2 object into dataframe
+res_df <- as.data.frame(res)
+## Sort the table by adjusted p-value in ascending order
+res_sorted <- res_df[order(res_df$padj, decreasing = FALSE), ]
+## Select first 10 rows
+top10 <- res_sorted[1:10, ]
+top10
+```
+
+Above lists the top 10 mostly differentially expressed genes.
+
+# 4)	Perform GSEA analysis against C5 GP BP gene sets (use the gene set file provided in RNA-seq practical) and list the top 10 mostly differentially regulated BP gene sets (based on adjusted p-values) with all the statistics listed in one table. (4 points)
+
+## Pre-ranked GSEA
+### Installing packages
+```{r}
+#BiocManager::install("fgsea")
+library(fgsea)
+
+#install.packages("data.table")
+library(data.table)
+
+#BiocManager::install("qusage")
+library(qusage)
+
+#install.packages("ggplot2")
+library(ggplot2)
+```
+
+### Load the Gene Set collection (Note you need to download the gmt file of the collection of your interest from MSigDB)
+```{r}
+setwd("/Users/naomi/Downloads/Omics Coursework/RNA Seq")
+getwd()
+library(fgsea)
+library(data.table)
+
+# 1) Load the GO BP gene sets from the GMT and convert to list
+## Read the GMT
+gmt.df <- read.gmt("c5.go.bp.v7.4.symbols.gmt")   # columns: term, gene
+
+## Convert to a list of gene sets
+genesets <- split(gmt.df$gene, gmt.df$term) # list of gene sets
+
+
+# 2) Rank ALL genes from DE results (make DE.ranks)
+res_df.ranked <- res_df[order(res_df$log2FoldChange, decreasing = TRUE), ]
+
+DE.ranks <- setNames(res_df.ranked$log2FoldChange, rownames(res_df.ranked))
+DE.ranks <- DE.ranks[!is.na(names(DE.ranks))]
+DE.ranks <- DE.ranks[!duplicated(names(DE.ranks))]
+
+# 3) Run fgsea
+fgseaRes <- fgsea(pathways = genesets,
+                  stats    = DE.ranks,
+                  minSize  = 15,
+                  maxSize  = 500)
+# 4) Top 10 BP gene sets by adjusted p-value (one table with all stats)
+fgseaRes_sorted <- fgseaRes[!is.na(padj)][order(padj)]
+fgseaRes_top10  <- fgseaRes_sorted[1:10]
+
+fgseaRes_top10
+
+# 5) Save top 10 as CSV
+fwrite(fgseaRes_top10,
+       file = "./Top10_GSEA_C5_GOBP_TumourVSNormal.csv",
+       sep = ",")
+
+```
+
+
+
+# 5)	Produce GESA enrichment plots for the top 2 mostly upregulated BP gene sets (based on adjusted p-values) in tumour compared to normal, and the top 2 mostly downregulated BP gene sets in tumour compared to normal. (3 points)
+
+### Producing an enrichment plot
+To visualise how the most strongly regulated biological processes behave across the ranked gene list, enrichment plots were generated for the top two upregulated and top two downregulated GO Biological Process pathways identified by GSEA. These plots illustrate where the genes belonging to each pathway accumulate along the tumour–normal expression ranking.
+```{r}
+## Get names of gene sets (top 2 and bottom 2 based on top 10 table)
+## Top 2 upregulated BP gene sets (NES > 0)
+top2_up <- fgseaRes_top10[fgseaRes_top10$NES > 0, ][1:2, ]
+
+## Top 2 downregulated BP gene sets (NES < 0)
+top2_down <- fgseaRes_top10[fgseaRes_top10$NES < 0, ][1:2, ]
+
+top2_up$pathway
+top2_down$pathway
+
+```
+
+The top upregulated pathways is GOBP_B_CELL_RECEPTOR_SIGNALING_PATHWAY and GOBP_HUMORAL_IMMUNE_RESPONSE_MEDIATED_BY_CIRCULATING_IMMUNOGLOBULIN.  In contrast, the top downregulated pathways—GOBP_MONOCARBOXYLIC_ACID_METABOLIC_PROCESS and GOBP_FATTY_ACID_METABOLIC_PROCESS.
+
+## Producing an enrichment plot
+
+To explore how key biological processes shift between tumour and normal samples, I generated GSEA enrichment plots for the top upregulated and downregulated GO Biological Process pathways. These plots show how each pathway’s genes are distributed along the tumour–normal ranking, highlighting whether their activity tends to increase or decrease in tumour tissue.
+
+```{r}
+## Top 2 pathways
+EnPlot <- plotEnrichment(genesets[[ top2_up$pathway[1] ]], DE.ranks) +
+  labs(title = top2_up$pathway[1]) + theme(text = element_text(size=20))
+
+EnPlot2 <- plotEnrichment(genesets[[ top2_down$pathway[1] ]], DE.ranks) +
+  labs(title = top2_down$pathway[1]) + theme(text = element_text(size=20))
+
+EnPlot
+EnPlot2
+
+```
+
+GSEA enrichment plots revealed distinct regulatory patterns between tumour and normal samples. The B-cell receptor signalling pathway showed strong positive enrichment, with genes concentrated at the top of the ranked gene list, indicating increased immune signalling in tumour tissue. In contrast, the monocarboxylic acid metabolic process exhibited negative enrichment, with genes accumulating toward the downregulated end of the ranking, consistent with suppression of metabolic pathways in tumour samples.
+
+```{r}
+## Bottom 2 pathways
+EnPlot3 <- plotEnrichment(pathways[[ top2_down$pathway[1] ]], DE.ranks) + labs(title = top2_down$pathway[1]) + theme(text = element_text(size = 20))
+EnPlot4 <- plotEnrichment(pathways[[ top2_down$pathway[2] ]], DE.ranks) + labs(title = top2_down$pathway[2]) + theme(text = element_text(size = 20))
+
+EnPlot3
+EnPlot4
+
+```
+
+GSEA enrichment plots revealed that metabolic pathways were strongly downregulated in tumour compared to normal tissue. Both the monocarboxylic acid metabolic process and fatty acid metabolic process exhibited negative enrichment scores, with pathway genes clustered toward the downregulated end of the ranked gene list. This pattern suggests widespread suppression of metabolic processes in tumour samples, consistent with tumour-associated metabolic reprogramming.
